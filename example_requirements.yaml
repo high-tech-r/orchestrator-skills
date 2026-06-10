@@ -1,0 +1,35 @@
+project:
+  name: "シンプルTODOアプリ"
+  type: "new"
+  scale: "light"
+  tech_stack:
+    language: "Python"
+    framework: "FastAPI"
+    database: "SQLite"
+    frontend: "なし（API only）"
+
+features:
+  - id: "F-001"
+    name: "タスク追加"
+    description: "新しいTODOタスクを追加する"
+    acceptance_criteria:
+      - "タイトル（必須）と説明（任意）を指定してタスクを作成できる"
+      - "タイトルが空の場合はエラーを返す"
+      - "作成日時が自動で記録される"
+    tier: "低"
+    priority: "高"
+    dependencies: []
+
+  - id: "F-002"
+    name: "タスク一覧取得"
+    description: "登録されたTODOタスクの一覧を取得する"
+    acceptance_criteria:
+      - "全タスクを作成日時の降順で取得できる"
+      - "完了/未完了でフィルタリングできる"
+    tier: "低"
+    priority: "高"
+    dependencies: ["F-001"]
+
+context: |
+  学習用のシンプルなTODOアプリ。認証なし。
+  RESTful APIとして設計する。
