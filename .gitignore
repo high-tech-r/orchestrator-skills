@@ -1,0 +1,31 @@
+# --- シークレット（カテゴリ1・7: そもそもコミット/送信させない） ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+id_rsa
+id_ed25519
+secrets/
+credentials*.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- セキュリティツールの出力 ---
+*.sarif
+.zap/*.html
+.zap/*.json
+
+# --- Claude Code のローカル上書き設定（個人設定はコミットしない） ---
+.claude/settings.local.json
+
+# --- WSL/Windows 由来のゴミ（Zone.Identifier 代替データストリーム） ---
+*:Zone.Identifier

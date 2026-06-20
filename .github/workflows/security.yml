@@ -1,0 +1,116 @@
+# レベル2セキュリティ: 第2層（CI上の品質ゲート）
+# すべて無料ツールで構成。基準を満たさないPRのマージを自動でブロックする。
+#
+# 対応カテゴリ:
+#   1. シークレットスキャン     -> TruffleHog（検証機能つき）
+#   2. SCA（脆弱性スキャン）    -> Trivy + pip-audit
+#   3. SCA（slopsquatting）    -> OSV-Scanner（補助）/ ※Socket GitHub App は別途有効化
+#   4. SAST（汎用）            -> Semgrep OSS CLI
+#   5. SAST（AI生成コード特化） -> Semgrep AI Security + Shadow AI ルール
+#   6. ライセンススキャン       -> Trivy（license スキャナ）
+#   8. DAST                    -> 別ワークフロー（dast-zap.yml）で実行
+name: Security (Level 2)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # SARIF を Code Scanning にアップロードするため
+
+jobs:
+  # --- カテゴリ1: シークレットスキャン（TruffleHog OSS / 無料） ---
+  secrets:
+    name: Secrets - TruffleHog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # git履歴全体をスキャンするため
+      - name: TruffleHog（検証つきスキャン）
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified   # "現在も有効な"シークレットだけで失敗させる
+
+  # --- カテゴリ4+5: SAST（汎用 + AI生成コード特化）Semgrep OSS / 無料 ---
+  sast:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep scan（無料レジストリルール）
+        run: |
+          semgrep scan \
+            --config p/default \
+            --config p/python \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/dockerfile \
+            --sarif --output semgrep.sarif \
+            --error
+          # --- カテゴリ5: AI生成コード特化（無料パック） ---
+          # 記事の "AI Security"(27) / "Shadow AI"(186) ルールに相当。
+          # 公式レジストリでのパック名は導入時に最新を確認すること:
+          #   https://semgrep.dev/explore
+          # 例（要確認）:
+          #   --config p/ai-security  --config p/shadow-ai
+      - name: SARIF を Code Scanning にアップロード
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+
+  # --- カテゴリ2+6: SCA（脆弱性）+ ライセンススキャン（Trivy / 無料） ---
+  sca-trivy:
+    name: SCA + License - Trivy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy（脆弱性 + ライセンス）
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,license,secret,misconfig
+          severity: CRITICAL,HIGH
+          exit-code: '1'        # CRITICAL/HIGH があればマージブロック
+          ignore-unfixed: true
+
+  # --- カテゴリ2: SCA（Pythonの既知脆弱性）pip-audit / 無料 ---
+  pip-audit:
+    name: SCA - pip-audit
+    runs-on: ubuntu-latest
+    if: hashFiles('**/requirements*.txt') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          for f in $(find . -name 'requirements*.txt' -not -path './.git/*'); do
+            echo "::group::pip-audit $f"
+            pip-audit -r "$f" || exit 1
+            echo "::endgroup::"
+          done
+
+  # --- カテゴリ3: SCA（slopsquatting補助）OSV-Scanner / 無料 ---
+  # ※ 振る舞い分析による本命の slopsquatting 対策は Socket GitHub App（OSS無料枠）。
+  #    OSV-Scanner は既知の悪性パッケージ・脆弱性アドバイザリの照合を担う補助層。
+  osv:
+    name: SCA - OSV-Scanner
+    runs-on: ubuntu-latest
+    if: hashFiles('**/requirements*.txt', '**/poetry.lock', '**/Pipfile.lock') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: OSV-Scanner
+        uses: google/osv-scanner-action@v1.9.1
+        with:
+          scan-args: |-
+            --recursive
+            ./

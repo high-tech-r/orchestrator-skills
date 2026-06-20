@@ -71,6 +71,23 @@ orchestrator-skills/
 └── tests/                     # テストコード
 ```
 
+## セキュリティ（レベル2 / 無料ツールのみ）
+
+AI駆動開発向けのレベル2セキュリティを無料ツールだけで組み込み済み。
+詳細とセットアップ手順は [`docs/security/LEVEL2_SECURITY.md`](docs/security/LEVEL2_SECURITY.md) を参照。
+
+- pre-commit（Gitleaks）でコミット前にシークレットをブロック
+- GitHub Actions（`Security (Level 2)`）でPR時に TruffleHog / Semgrep / Trivy / pip-audit / OSV-Scanner を自動実行し、品質ゲートでマージを制御
+- Dependabot・Secret scanning・Socket(OSS無料App) はリポジトリ設定で有効化（手動）
+- DAST（OWASP ZAP）は手動実行ワークフロー
+- `.claude/settings.json` の `permissions.deny` で機密ファイルをAIから遮断
+
+最小セットアップ:
+
+```bash
+pip install pre-commit && pre-commit install
+```
+
 ## 検証ポイント
 
 1. Claude CodeがSkillを正しく認識して順番に実行するか

@@ -62,3 +62,11 @@ project_root/
 - 問題点と修正方針を具体的に指示に含める
 - feedback_historyに全履歴を残す（同じ指摘の繰り返しを防ぐ）
 - 差し戻し先は問題の原因に応じて最小限の工程に戻す
+
+### 7. セキュリティ（レベル2 / 無料ツールのみ）
+生成物はリポジトリのセキュリティCI（`.github/workflows/security.yml`）で品質ゲートにかかる。
+コード・依存を生成する際は次を守る:
+- ハードコードされたシークレットを出力しない（Gitleaks/TruffleHogでブロックされる）
+- 実在性が確認できないパッケージを追加しない（slopsquatting対策。`implement` スキル参照）
+- 機密ファイル（.env, *.pem, *.key 等）は `.claude/settings.json` の `permissions.deny` で読み取り禁止
+- 構成の全体像は `docs/security/LEVEL2_SECURITY.md`
