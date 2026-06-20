@@ -39,9 +39,9 @@
 | DB定義一致 | テーブル定義が設計書と一致しているか | 乖離を指摘 |
 | テストカバレッジ | テスト仕様書が全受入条件をカバーしているか | 不足を指摘 |
 | 用語統一 | 変数名・メソッド名・テーブル名が設計書と一致 | 不一致を指摘 |
-| 依存パッケージ整合 | コードでimportしているパッケージが全てrequirements.txtに記載されているか | 不足を指摘 |
+| 依存パッケージ整合 | コードでimport/requireしているパッケージが全て依存定義ファイル（requirements.txt / package.json / go.mod 等）に記載されているか | 不足を指摘 |
 | Docker実行可能性 | Dockerfile + docker-compose.yamlでビルド・起動できる構成か | 不備を指摘 |
-| Tier判定妥当性 | `review_tier_definition.yaml` のkeywords/risk_signalsと実装コードを照合し、バックログのTier指定が妥当か検証。決済・個人情報・認証を扱う機能が低Tierに設定されていないか | Tier引き上げを推奨 |
+| Tier判定妥当性 | `review_tier_definition.yaml` のkeywords/risk_signalsと実装コードを照合し、バックログのTier指定が妥当か検証。決済・個人情報・認証を扱う機能が Tier C/D（低リスク）に設定されていないか | Tier引き上げを推奨 |
 
 ### 出力
 `docs/consistency_report/F-XXX_gate2.md`

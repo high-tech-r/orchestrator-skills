@@ -41,7 +41,7 @@
 # テスト手順書 & レビュー対象マップ: F-XXX（機能名）
 
 ## 基本情報
-- Tier: 中
+- Tier: B
 - 推定所要時間: XX分
 - 前提条件: Docker Desktop がインストールされていること
 - 作成日: YYYY-MM-DD
@@ -67,12 +67,17 @@
 5. エラーが出た場合 → 「トラブルシューティング」セクションを参照
 
 ### Step 2: 動作確認
-1. ブラウザで以下のURLを開く：
+1. アプリのヘルスチェック/トップURL（フレームワークに応じて。例: `http://localhost:8000/`）を確認する：
+   ```bash
+   curl -i http://localhost:8000/
    ```
-   http://localhost:8000/docs
-   ```
-2. FastAPIの自動ドキュメント画面が表示されれば環境構築完了
-3. 表示されない場合 → 30秒待って再読み込み。それでもダメなら「トラブルシューティング」参照
+   ブラウザで開いてもよい。APIドキュメント機能（Swagger UI / OpenAPI 等）があるFWなら
+   そのURL（例: FastAPI なら `/docs`）を開くと以降のテストが楽になる。
+2. ステータス 200 系が返る／画面が表示されれば環境構築完了
+3. 表示されない場合 → 30秒待って再実行。それでもダメなら「トラブルシューティング」参照
+
+> 以下のテスト手順は Swagger UI を持つフレームワーク（例: FastAPI）を例に書いている。
+> Swagger UI が無い場合は、各操作を `curl` などのAPIクライアントに読み替える。
 
 ---
 
@@ -132,9 +137,9 @@
 ### レビュー対象ファイル一覧
 | # | ファイルパス | 確認観点 | Tier判定 |
 |---|------------|---------|---------|
-| 1 | src/api/xxx.py | API処理ロジック | 中: 機能単位レビュー |
-| 2 | src/models/xxx.py | モデル定義 | 中: 設計書との一致確認 |
-| 3 | migrations/xxx.py | DB定義 | 中: カラム・制約の確認 |
+| 1 | src/api/xxx.py | API処理ロジック | B: 差分レビュー（意図確認） |
+| 2 | src/models/xxx.py | モデル定義 | B: 設計書との一致確認 |
+| 3 | migrations/xxx.py | DB定義 | B: カラム・制約の確認 |
 
 ### レビュー 3-1: src/api/xxx.py
 **確認手順:**
@@ -156,25 +161,32 @@
   - 設計書を横に開いて見比べる
   - 特に確認: テーブル名、カラム名、APIパラメータ名
 
-### レビュー 3-2: requirements.txt
+### レビュー 3-2: 依存定義ファイル
 **確認手順:**
-1. `requirements.txt` を開く
-2. `src/` 内の全 `.py` ファイルの `import` 文を確認する：
+1. 依存定義ファイルを開く（言語別: `requirements.txt` / `package.json` / `go.mod` 等）
+2. `src/` 内のコードで import / require している外部パッケージを確認する
+   （言語別の例）：
    ```bash
-   grep -r "^import\|^from" src/
+   # Python
+   grep -rE "^import |^from " src/
+   # Node.js
+   grep -rE "require\(|^import " src/
    ```
 3. 以下を確認する：
-- [ ] importされている外部パッケージが全て requirements.txt に記載されている
-- [ ] バージョンが範囲指定で固定されている（例: `>=2.0.0,<3.0.0`）
+- [ ] import/require されている外部パッケージが全て依存定義ファイルに記載されている
+- [ ] バージョンが固定されている（範囲指定 or lockfile）
 
 ---
 
 ## Part 4: 自動テスト実行手順
 
 ### Step 1: テストを実行する
-1. ターミナルで以下のコマンドを実行：
+1. ターミナルで、プロジェクトのテストコマンドをコンテナ内で実行：
    ```bash
-   docker compose exec app pytest tests/ -v
+   # 言語別の例（プロジェクトに合わせて差し替え）
+   docker compose exec app pytest tests/ -v      # Python
+   # docker compose exec app npm test             # Node.js
+   # docker compose exec app go test ./...        # Go
    ```
 2. 出力結果を確認する：
    - [ ] 全てのテストに `PASSED` と表示されている
@@ -208,13 +220,13 @@
 - `build failed` → `docker compose build --no-cache` で再ビルド
 
 ### テスト実行エラー
-- `ModuleNotFoundError` → requirements.txt にパッケージが足りない可能性。開発者に報告
+- 依存関係エラー（`ModuleNotFoundError` / `Cannot find module` 等）→ 依存定義ファイルにパッケージが足りない可能性。開発者に報告
 - `Connection refused` → Dockerコンテナが起動していない。`docker compose up -d` を実行
 ```
 
 ## 記載の原則
 
-1. **全ての操作にコマンドまたはURLを明記する** — 「APIを叩く」ではなく「ブラウザで http://localhost:8000/docs を開き、POST /api/xxx をクリックする」
+1. **全ての操作にコマンドまたはURLを明記する** — 「APIを叩く」ではなく「`curl -X POST http://localhost:8000/api/xxx -d '{...}'` を実行する」（Swagger UI があれば画面操作でもよい）
 2. **コピー&ペーストで実行できるようにする** — テストデータはJSON形式で丸ごと記載。「適当なデータを入れてください」は禁止
 3. **確認項目はチェックボックス形式** — [ ] で列挙し、1つずつ確認できるようにする
 4. **期待結果を先に書く** — 操作手順の前に「何が起きれば成功か」を明示する
