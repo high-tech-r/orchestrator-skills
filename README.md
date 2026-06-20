@@ -18,6 +18,55 @@
 
 MITライセンスで公開しています。フォーク・改変・再配布は自由です（[LICENSE](LICENSE)）。
 
+## クイックスタート（一本道）
+
+clone から最初の成果物が出るまでを、この順番どおりに進めれば動きます。
+
+### 1. clone してフックを入れる
+
+```bash
+git clone https://github.com/high-tech-r/orchestrator-skills.git
+cd orchestrator-skills
+pip install pre-commit && pre-commit install   # コミット前のシークレット検出
+```
+
+### 2. リポジトリ設定の手動ステップ（フォークして使う場合・すべて無料）
+
+GitHubの画面でのみ有効化できる設定。**最初に1回だけ**実施する（自分のリポジトリとして運用する場合）。
+
+1. Settings → Code security → **Dependabot alerts / security updates** を Enable
+2. Settings → Code security → **Secret scanning（push protection）** を Enable
+3. https://socket.dev から **Socket GitHub App** をインストール（slopsquatting対策・OSS無料）
+4. Settings → Branches → main の保護で **`Security (Level 2)` を Required** に設定
+5. https://semgrep.dev/explore で **AI Security / Shadow AI パック**の最新名を確認し、`.github/workflows/security.yml` のコメント箇所を有効化
+
+> まず動かして試すだけなら 2 はスキップ可。後から有効化しても問題ありません。
+> 各ステップの背景は [`docs/security/LEVEL2_SECURITY.md`](docs/security/LEVEL2_SECURITY.md) を参照。
+
+### 3. Claude Code を起動して最初の要件を投入する
+
+```bash
+claude
+```
+
+起動したら、プロンプトに要件を貼るだけ:
+
+```
+以下の要件でオーケストレーションを開始してください。
+
+プロジェクト名: シンプルTODOアプリ
+技術スタック: Python / FastAPI / SQLite
+機能:
+- F-001: タスク追加（タイトル必須、説明任意、作成日時自動記録）
+- F-002: タスク一覧取得（作成日時降順、完了/未完了フィルタ）
+```
+
+Claude Code が `CLAUDE.md` を読み、要件定義 → 設計 →[Gate 1]→ 実装＋テスト →[Gate 2]→ レビューガイド の順にパイプラインを回し、`docs/` `src/` `tests/` に成果物を生成します。中断しても次回 `前回の続きからお願いします` で再開できます。
+
+---
+
+以下は各トピックの詳細です。
+
 ## セットアップ
 
 1. このディレクトリをプロジェクトルートとして使う（またはCLAUDE.mdとskillsを既存プロジェクトにコピー）
