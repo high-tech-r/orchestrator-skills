@@ -1,0 +1,443 @@
+# =============================================================================
+# AI Agent Review Tier Definition
+# =============================================================================
+#
+# 目的:
+#   AIエージェントオーケストレーションにおいて、生成されたコードの
+#   レビュー深度・テスト要件を機能の性質に応じて自動判定するための定義。
+#
+# 使い方:
+#   - コーディネーターエージェント: タスク割り当て時にTierを判定し、
+#     レビュワーエージェントに必要なレビュー深度を指示する。
+#   - レビュワーエージェント: 該当Tierのreview_policy・test_policyに従い、
+#     レビューの粒度と合格基準を決定する。
+#   - 開発者: Tier S/AはAIレビュー後に人間が最終承認する。
+#     Tier B以下はAIレビューのみで承認可とする。
+#
+# Tier判定フロー:
+#   1. 対象機能のkeywordsとrisk_signalsを照合する
+#   2. 複数Tierに該当する場合、最も高いTierを採用する
+#   3. risk_factorsで追加判定し、該当項目が多いほどTierを上げる
+#   4. 判定に自信がない場合は1つ上のTierを採用する
+#
+# 重要原則:
+#   - AIが生成した成果物の全責任は開発者にある
+#   - Tierを下げることはサボりではなく投資の適正化である
+#   - 予想損失 < レビュー工数 となる場合、Tierの引き下げを検討する
+# =============================================================================
+
+tiers:
+  S:
+    name: "全行レビュー + 手動テスト"
+    summary: "お金・個人情報・認証 — 1行のミスが訴訟や数千万円の損失に直結する領域"
+    requires_human_approval: true
+    ai_autonomy: "none"
+
+    review_policy:
+      scope: "全行"
+      method: "line_by_line"
+      description: "全行を人間が読み、ロジックを理解した上で承認する"
+      checklist:
+        - "入力バリデーションに漏れがないか"
+        - "金額計算の精度（浮動小数点の扱い、通貨単位）"
+        - "認証・認可の境界条件（トークン期限切れ、権限昇格）"
+        - "個人情報のログ出力・レスポンスへの混入がないか"
+        - "エラー時のフォールバックが安全側に倒れているか"
+        - "外部からの入力を信頼していないか（SQLi, XSS, CSRF）"
+
+    test_policy:
+      unit_test: "required"
+      integration_test: "required"
+      manual_test: "required"
+      coverage_threshold: 90
+      requirements:
+        - "正常系・異常系・境界値の全パターン"
+        - "手動での境界値テスト（金額の上限下限、文字数制限）"
+        - "権限の異なるユーザーでのアクセス制御テスト"
+        - "外部サービス障害時のフォールバックテスト"
+
+    keywords:
+      - "payment"
+      - "charge"
+      - "transfer"
+      - "withdraw"
+      - "refund"
+      - "stripe"
+      - "authentication"
+      - "authorization"
+      - "jwt"
+      - "oauth"
+      - "rbac"
+      - "session"
+      - "login"
+      - "password"
+      - "encrypt"
+      - "decrypt"
+      - "personal_data"
+      - "pii"
+      - "gdpr"
+      - "hipaa"
+      - "medical"
+      - "health"
+      - "diagnosis"
+      - "trading"
+      - "order_execution"
+      - "financial"
+      - "legal_document"
+      - "contract"
+      - "決済"
+      - "送金"
+      - "認証"
+      - "認可"
+      - "個人情報"
+      - "暗号化"
+      - "医療"
+      - "株取引"
+      - "金融"
+
+    risk_signals:
+      - "金銭の移動を伴う処理"
+      - "個人情報（氏名、住所、カード番号等）を扱う"
+      - "認証トークンの発行・検証"
+      - "権限チェックのロジック"
+      - "法的効力を持つ文書の生成"
+      - "取り消し不能な操作（送金確定、データ完全削除）"
+
+    examples:
+      - "決済・送金処理（Stripe, 銀行API連携）"
+      - "認証・認可ロジック（JWT発行, RBAC, OAuth）"
+      - "個人情報の暗号化・保存・削除処理"
+      - "医療・ヘルスケア関連の判定ロジック"
+      - "株取引・金融商品の注文処理"
+      - "法的文書の自動生成ロジック"
+
+  A:
+    name: "重点レビュー + 自動テスト必須"
+    summary: "データ操作・外部連携 — エラーハンドリングや順序を間違えるとデータが消える"
+    requires_human_approval: true
+    ai_autonomy: "partial"
+
+    review_policy:
+      scope: "ビジネスロジック重点"
+      method: "focused_review"
+      description: "ビジネスロジック部分を重点レビュー、定型部分は流し読み"
+      checklist:
+        - "データの整合性が保たれるか（トランザクション境界）"
+        - "外部API障害時のリトライ・タイムアウト処理"
+        - "非同期処理の実行順序と冪等性"
+        - "ファイル操作の権限とパス検証"
+        - "メール送信先の検証（テスト環境での誤送信防止）"
+        - "N+1クエリや大量データでのパフォーマンス"
+
+    test_policy:
+      unit_test: "required"
+      integration_test: "required"
+      manual_test: "optional"
+      coverage_threshold: 80
+      requirements:
+        - "主要フローの結合テスト"
+        - "外部API連携のモックテスト"
+        - "エラーハンドリングのテスト（タイムアウト、4xx、5xx）"
+        - "バッチ処理の冪等性テスト"
+
+    keywords:
+      - "migration"
+      - "schema"
+      - "alter_table"
+      - "batch"
+      - "celery"
+      - "queue"
+      - "async_job"
+      - "cron"
+      - "external_api"
+      - "webhook"
+      - "callback"
+      - "upload"
+      - "s3"
+      - "file_storage"
+      - "email"
+      - "notification"
+      - "search"
+      - "query_builder"
+      - "elasticsearch"
+      - "マイグレーション"
+      - "バッチ"
+      - "非同期"
+      - "外部API"
+      - "メール送信"
+
+    risk_signals:
+      - "データベーススキーマの変更"
+      - "大量データを一括処理するバッチ"
+      - "外部サービスへのHTTPリクエスト"
+      - "ファイルのアップロード・削除"
+      - "ユーザーへの通知・メール送信"
+
+    examples:
+      - "データベースのマイグレーション・スキーマ変更"
+      - "バッチ処理・非同期ジョブ（Celery, キュー）"
+      - "外部API連携（データ変換・エラーハンドリング）"
+      - "ファイルアップロード・S3操作"
+      - "メール送信ロジック（テンプレート含む）"
+      - "検索・フィルタリングのクエリ構築"
+
+  B:
+    name: "差分レビュー + 自動テスト推奨"
+    summary: "定型的なビジネスロジック — パターンが確立されており、AIの得意領域だが意図通りか差分で確認"
+    requires_human_approval: false
+    ai_autonomy: "high"
+
+    review_policy:
+      scope: "差分のみ"
+      method: "diff_review"
+      description: "差分（diff）ベースのレビュー、意図通りか確認"
+      checklist:
+        - "CRUDの対象モデル・フィールドが仕様通りか"
+        - "バリデーションルールが要件を満たしているか"
+        - "レスポンス形式がAPI仕様と一致するか"
+        - "設定ファイルの値が環境に適切か"
+
+    test_policy:
+      unit_test: "recommended"
+      integration_test: "optional"
+      manual_test: "not_required"
+      coverage_threshold: 60
+      requirements:
+        - "主要パスのユニットテスト"
+        - "スナップショットテスト（API レスポンス形式）"
+
+    keywords:
+      - "crud"
+      - "rest_api"
+      - "controller"
+      - "serializer"
+      - "form"
+      - "validation"
+      - "admin"
+      - "dashboard"
+      - "logging"
+      - "monitoring"
+      - "docker"
+      - "docker-compose"
+      - "ci"
+      - "cd"
+      - "pipeline"
+      - "github_actions"
+      - "管理画面"
+      - "バリデーション"
+      - "ログ"
+
+    risk_signals:
+      - "標準的なCRUD操作"
+      - "入力フォームのバリデーション"
+      - "管理画面の一覧・詳細表示"
+      - "インフラ設定ファイルの変更"
+
+    examples:
+      - "CRUDのAPI実装（標準的なREST）"
+      - "フォームのバリデーションロジック"
+      - "管理画面の一覧・詳細・編集"
+      - "ログ出力・モニタリング設定"
+      - "Docker / docker-compose設定"
+      - "CI/CDパイプライン設定"
+
+  C:
+    name: "ざっと確認 + 動作確認のみ"
+    summary: "表示・見た目系 — 壊れても画面を見れば気づける、致命的な影響なし"
+    requires_human_approval: false
+    ai_autonomy: "full"
+
+    review_policy:
+      scope: "動作確認"
+      method: "visual_check"
+      description: "ブラウザ/実機で動作確認、コードはざっと目視"
+      checklist:
+        - "表示が意図通りか（レイアウト崩れ、文言ミス）"
+        - "主要ブラウザ・デバイスでの表示確認"
+        - "リンク切れがないか"
+
+    test_policy:
+      unit_test: "optional"
+      integration_test: "not_required"
+      manual_test: "visual_only"
+      coverage_threshold: 0
+      requirements:
+        - "ビジュアルリグレッション or 手動で画面確認"
+
+    keywords:
+      - "component"
+      - "button"
+      - "card"
+      - "modal"
+      - "responsive"
+      - "css"
+      - "style"
+      - "layout"
+      - "static_page"
+      - "landing_page"
+      - "about"
+      - "i18n"
+      - "translation"
+      - "readme"
+      - "documentation"
+      - "seed"
+      - "fixture"
+      - "UI"
+      - "静的ページ"
+      - "翻訳"
+      - "ドキュメント"
+
+    risk_signals:
+      - "表示のみで副作用がない"
+      - "壊れても目視で即座に気づける"
+      - "ユーザーデータに触れない"
+
+    examples:
+      - "UIコンポーネント（ボタン、カード、モーダル）"
+      - "レスポンシブ対応・CSS調整"
+      - "静的ページ（LP、About、利用規約表示）"
+      - "i18n対応（翻訳ファイルの追加）"
+      - "READMEやドキュメントの更新"
+      - "テストデータ・シードデータ"
+
+  D:
+    name: "AIに任せてOK（信頼して委譲）"
+    summary: "設定・ボイラープレート — 壊れても再生成すれば済む、パターンが完全に決まっている"
+    requires_human_approval: false
+    ai_autonomy: "full"
+
+    review_policy:
+      scope: "ビルド確認のみ"
+      method: "build_check"
+      description: "生成結果がビルド/起動するか確認のみ"
+      checklist:
+        - "ビルドが通るか"
+        - "lintエラーがないか"
+
+    test_policy:
+      unit_test: "not_required"
+      integration_test: "not_required"
+      manual_test: "not_required"
+      coverage_threshold: 0
+      requirements:
+        - "ビルド通過"
+        - "lintエラーなし"
+
+    keywords:
+      - "scaffold"
+      - "boilerplate"
+      - "generate"
+      - "eslint"
+      - "prettier"
+      - "editorconfig"
+      - "type_definition"
+      - "gitignore"
+      - "env_example"
+      - "package_json"
+      - "dependencies"
+      - "static_html"
+      - "設定ファイル"
+      - "ボイラープレート"
+
+    risk_signals:
+      - "自動生成されたコード"
+      - "壊れても即座に再生成可能"
+      - "パターンが完全に決まっている"
+      - "ビジネスロジックを含まない"
+
+    examples:
+      - "scaffoldコード（rails generate等）"
+      - "ESLint / Prettier / editorconfig設定"
+      - "型定義ファイルの自動生成"
+      - ".gitignore / .env.example"
+      - "パッケージインストール・依存関係の更新"
+      - "シンプルなHTML/CSSの静的ページ"
+
+# =============================================================================
+# Tier判定用リスク評価軸
+# =============================================================================
+# 各軸をhigh/lowで評価し、highが多いほど上位Tierを採用する
+#
+# 判定ロジック（推奨）:
+#   high が 4個以上 → Tier S
+#   high が 2-3個   → Tier A
+#   high が 1個     → Tier B
+#   high が 0個     → Tier C or D（複雑度で判断）
+
+risk_factors:
+  - name: "financial_impact"
+    label: "金銭的損失"
+    high: "数百万円〜"
+    low: "影響なし"
+    question: "この機能にバグがあった場合、金銭的損失はいくらか？"
+
+  - name: "personal_data"
+    label: "個人情報"
+    high: "漏洩リスクあり"
+    low: "扱わない"
+    question: "この機能は個人情報（PII）を扱うか？"
+
+  - name: "legal_liability"
+    label: "法的責任"
+    high: "訴訟・行政処分"
+    low: "なし"
+    question: "バグが法的問題に発展する可能性はあるか？"
+
+  - name: "reversibility"
+    label: "可逆性"
+    high: "取り消し不能"
+    low: "すぐ戻せる"
+    question: "この操作は取り消し可能か？ロールバックできるか？"
+
+  - name: "affected_users"
+    label: "影響ユーザー数"
+    high: "全ユーザー"
+    low: "自分だけ"
+    question: "バグが発生した場合、影響を受けるユーザーの範囲は？"
+
+  - name: "complexity"
+    label: "複雑度"
+    high: "条件分岐多数"
+    low: "定型処理"
+    question: "この機能の条件分岐や状態管理は複雑か？"
+
+# =============================================================================
+# オーケストレーション向け設定
+# =============================================================================
+
+orchestration:
+  # Tier判定で迷った場合のデフォルト動作
+  default_on_ambiguity: "escalate_one_tier"
+
+  # 人間の承認が必要なTier
+  human_approval_required: ["S", "A"]
+
+  # AIのみで完結可能なTier
+  ai_autonomous: ["B", "C", "D"]
+
+  # Tier判定をオーバーライドする条件
+  overrides:
+    - condition: "production環境へのデプロイを含む"
+      action: "最低Tier Bを適用"
+    - condition: "本番データベースへの直接操作"
+      action: "Tier Sを強制適用"
+    - condition: "新規外部サービスとの初回連携"
+      action: "最低Tier Aを適用"
+
+  # レビュワーエージェントへの指示テンプレート
+  reviewer_prompt_template: |
+    あなたはコードレビュワーです。以下のコードをTier {tier}の基準でレビューしてください。
+
+    ## レビュー方針
+    {review_policy.description}
+
+    ## チェックリスト
+    {review_policy.checklist}
+
+    ## テスト要件
+    {test_policy.requirements}
+
+    ## 判断基準
+    - このTierで求められる品質基準を満たしているか確認してください
+    - 基準を満たさない場合は具体的な修正指示を出してください
+    - Tier判定が不適切だと感じた場合はエスカレーションしてください
