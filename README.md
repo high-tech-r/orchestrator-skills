@@ -45,13 +45,29 @@ project_status.yaml を読んで、前回の続きから再開する。
 orchestrator-skills/
 ├── CLAUDE.md                        # オーケストレーターのメインルール
 ├── .claude/
+│   ├── settings.json                # 権限制御（Content Exclusion / permissions.deny）
 │   └── skills/
+│       ├── requirements/SKILL.md    # 要件定義（対話型）
 │       ├── orchestrate/SKILL.md     # パイプライン制御・初期化
 │       ├── design/SKILL.md          # 設計書生成
 │       ├── implement/SKILL.md       # ソースコード生成
 │       ├── test-design/SKILL.md     # テスト仕様書生成
 │       ├── consistency-check/SKILL.md  # Gate 1 & Gate 2
-│       └── review-guide/SKILL.md    # レビュー対象マップ
+│       └── review-guide/
+│           ├── SKILL.md             # レビュー手順書生成
+│           └── review_tier_definition.yaml  # Tier自動判定の定義
+├── .github/
+│   ├── workflows/
+│   │   ├── security.yml             # レベル2セキュリティCI（品質ゲート）
+│   │   └── dast-zap.yml             # DAST（OWASP ZAP・手動実行）
+│   ├── dependabot.yml               # 依存パッケージの脆弱性スキャン
+│   └── PULL_REQUEST_TEMPLATE.md     # AI利用チェック付きPRテンプレート
+├── .pre-commit-config.yaml          # Gitleaks等のコミット前フック
+├── .gitleaks.toml                   # シークレットスキャンのルール
+├── .zap/rules.tsv                   # ZAP誤検知の抑制ルール
+├── .gitignore
+├── docs/
+│   └── security/LEVEL2_SECURITY.md  # セキュリティ構成の解説・手順
 ├── example_requirements.yaml        # テスト用要件サンプル
 └── README.md
 ```
@@ -95,3 +111,4 @@ pip install pre-commit && pre-commit install
 3. project_status.yamlでセッション再開できるか
 4. SKILL.mdのサイズがContext Rotを起こさないか
 5. 成果物の品質（設計書・コード・テストの整合性）
+6. セキュリティCI（`Security (Level 2)`）が生成物に対して品質ゲートとして機能するか
