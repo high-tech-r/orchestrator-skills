@@ -18,13 +18,15 @@
 | `docs/delivery/design_summary.md` | 本スキルが生成（顧客向け設計サマリー） |
 | `docs/delivery/quality_report_YYYY-MM-DD.md` | `quality-report` スキルで生成（無ければ呼ぶ） |
 | `docs/delivery/security_report_YYYY-MM-DD.md` | `security-report` スキルで生成（無ければ呼ぶ） |
+| `docs/delivery/presentation_YYYY-MM-DD.md` | 本スキルが生成（**Gamma取り込み用スライドMarkdown**） |
 
 ## 手順
 1. `docs/delivery/` が無ければ作成する。
 2. `quality_report` / `security_report` が未生成なら、それぞれのスキルを実行して生成する。
 3. `design_summary.md` を生成する（下記）。
-4. `index.md` を生成する（下記）。
-5. 生成した納品物の一覧をユーザーに提示する。
+4. `presentation_YYYY-MM-DD.md` を生成する（Gamma取り込み用。下記）。
+5. `index.md` を生成する（下記）。
+6. 生成した納品物の一覧をユーザーに提示する。
 
 ### design_summary.md（顧客向け設計サマリー）
 `docs/design/F-XXX.md`（開発者向け）を顧客向けに要約する。技術詳細ではなく
@@ -47,6 +49,65 @@
 - 言語/FW/DB/インフラ（Docker）を簡潔に
 ```
 
+### presentation_YYYY-MM-DD.md（Gamma取り込み用スライド）
+顧客説明用のスライド原稿。**Gamma（gamma.app）にMarkdownとして取り込むことを前提**にする。
+
+**Gamma取り込みの約束ごと（厳守）:**
+- **`---`（水平線）が1スライドの区切り。** スライドごとに `---` を必ず挟む。
+- 各スライド冒頭の `#`/`##` 見出しがスライドのタイトルになる。1スライド1見出し。
+- 中身は**箇条書き中心・1行を短く**（1スライドに詰め込みすぎない。目安5〜7項目）。
+- 画像/表の多用は避け、テキストで完結させる（Gamma側でレイアウトされる）。
+- 数値・合否は品質/セキュリティレポートと一致させ、不利な事実も載せる（誠実性）。
+
+```markdown
+# （プロジェクト名）納品報告
+（顧客名） / 納品日 YYYY-MM-DD
+
+---
+
+## 本日お伝えすること
+- 提供する機能
+- 品質の担保（テスト結果）
+- セキュリティの担保（検査結果）
+- 残課題と今後
+
+---
+
+## システム概要
+- 目的: （1行）
+- 構成: 言語 / FW / DB（Docker）
+
+---
+
+## 提供機能
+- F-001 タスク追加: （顧客の言葉で1行）
+- F-002 タスク一覧: （1行）
+
+---
+
+## 品質の担保
+- テスト: PASS n/n（カバレッジ x% ／未計測なら「未計測」と明記）
+- 全機能が品質ゲート（Gate 1/2）を通過
+- 既知の不具合: なし ／ n件（重大度）
+
+---
+
+## セキュリティの担保
+- 秘密情報・脆弱性・ライセンス・静的解析を自動検査し品質ゲート通過
+- SBOM・ライセンスレポートを証跡として添付（OWASP Top10 / CWE 対応）
+
+---
+
+## 残課題・今後
+- （許容したリスク・未対応・次フェーズ。正直に記載）
+
+---
+
+## ご確認のお願い
+- 受け入れテスト手順書: docs/review_map/
+- 納品物一覧: docs/delivery/index.md
+```
+
 ### index.md（納品物一覧）
 ```markdown
 # 納品ドキュメント一覧
@@ -58,6 +119,7 @@
 | 設計サマリー | 提供機能と構成 | design_summary.md |
 | 品質レポート | テスト・バグ・ゲート通過状況 | quality_report_YYYY-MM-DD.md |
 | セキュリティレポート | 検査内容と証跡 | security_report_YYYY-MM-DD.md |
+| 説明スライド | 顧客説明用（Gamma取り込み用Markdown） | presentation_YYYY-MM-DD.md |
 | SBOM / ライセンス | 部品表・ライセンス一覧 | （CI成果物 sca-evidence を別添） |
 
 ## 本システムの品質・セキュリティの担保方法（要約）
