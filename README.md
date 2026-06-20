@@ -119,9 +119,12 @@ orchestrator-skills/
 │       ├── implement/SKILL.md       # ソースコード生成
 │       ├── test-design/SKILL.md     # テスト仕様書生成
 │       ├── consistency-check/SKILL.md  # Gate 1 & Gate 2
-│       └── review-guide/
-│           ├── SKILL.md             # レビュー手順書生成
-│           └── review_tier_definition.yaml  # Tier自動判定の定義
+│       ├── review-guide/
+│       │   ├── SKILL.md             # レビュー手順書生成
+│       │   └── review_tier_definition.yaml  # Tier自動判定の定義
+│       ├── security-report/SKILL.md # 顧客向けセキュリティ証跡（オンデマンド）
+│       ├── quality-report/SKILL.md  # 顧客向け品質レポート（オンデマンド）
+│       └── delivery/SKILL.md        # 納品ドキュメント一式の集約（オンデマンド）
 ├── .github/
 │   ├── workflows/
 │   │   ├── security.yml             # レベル2セキュリティCI（品質ゲート）
@@ -133,7 +136,9 @@ orchestrator-skills/
 ├── .zap/rules.tsv                   # ZAP誤検知の抑制ルール
 ├── .gitignore
 ├── docs/
-│   └── security/LEVEL2_SECURITY.md  # セキュリティ構成の解説・手順
+│   ├── security/LEVEL2_SECURITY.md  # セキュリティ構成の解説・手順
+│   └── delivery/README.md           # 納品ドキュメントフォルダの規約
+├── SECURITY.md                      # 顧客向けセキュリティ説明書
 ├── example_requirements.yaml        # テスト用要件サンプル
 └── README.md
 ```
@@ -148,7 +153,8 @@ orchestrator-skills/
 │   ├── design/F-001.md        # 設計書
 │   ├── test_spec/F-001.md     # テスト仕様書
 │   ├── consistency_report/    # 整合性レポート
-│   └── review_map/F-001.md    # レビュー対象マップ
+│   ├── review_map/F-001.md    # レビュー対象マップ
+│   └── delivery/              # 顧客向け納品ドキュメント（納品時に生成）
 ├── src/                       # ソースコード
 └── tests/                     # テストコード
 ```

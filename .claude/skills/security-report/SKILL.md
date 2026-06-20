@@ -22,7 +22,8 @@
 3. **Gate 2 の整合性レポート**: `docs/consistency_report/*_gate2.md`（実装の誠実性チェック結果を含む）。
 
 ## 出力ファイル
-`docs/security/report_YYYY-MM-DD.md`（顧客がそのまま読める日本語・実日付）。
+`docs/delivery/security_report_YYYY-MM-DD.md`（顧客がそのまま読める日本語・実日付）。
+納品ドキュメントは `docs/delivery/` に集約する（`delivery` スキル参照）。
 
 ```markdown
 # セキュリティ証跡レポート

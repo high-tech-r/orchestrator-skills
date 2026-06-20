@@ -62,7 +62,8 @@ project_root/
 │   ├── design/           # 機能別の設計書
 │   ├── test_spec/         # 機能別のテスト仕様書
 │   ├── consistency_report/
-│   └── review_map/
+│   ├── review_map/
+│   └── delivery/          # 顧客向け納品ドキュメント（delivery スキルで生成）
 ├── src/                   # ソースコード
 ├── tests/                 # テストコード
 ├── <依存定義ファイル>      # 本番依存（必須。言語に応じて requirements.txt / package.json / go.mod 等）
@@ -86,7 +87,9 @@ project_root/
 7. `review-guide` — テスト手順書生成（`review_tier_definition.yaml` に基づくTier自動判定）
 
 オンデマンド（パイプライン外・必要時に単発実行）:
-- `security-report` — 顧客向けセキュリティ証跡レポート生成（リリース・納品・定期報告時）
+- `security-report` — 顧客向けセキュリティ証跡レポート生成
+- `quality-report` — 顧客向け品質レポート生成（テスト・バグ・ゲート通過状況）
+- `delivery` — 納品ドキュメント一式を `docs/delivery/` に集約（上記2つを内包）
 
 ### 6. 差し戻し時のルール
 - 問題点と修正方針を具体的に指示に含める

@@ -39,7 +39,8 @@
 
 顧客に渡す体裁にまとめるには:
 - `SECURITY.md` … 顧客向けの「どう担保・テストしているか」の説明書（常設）
-- `security-report` スキル … 最新スキャン結果を日付つきレポート `docs/security/report_YYYY-MM-DD.md` に集約
+- `security-report` スキル … 最新スキャン結果を `docs/delivery/security_report_YYYY-MM-DD.md` に集約
+  （納品ドキュメントは `delivery` スキルで `docs/delivery/` に一括パッケージ化）
 
 ## セットアップ手順
 
