@@ -109,7 +109,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: OSV-Scanner
-        uses: google/osv-scanner-action@v1.9.1
+        uses: google/osv-scanner-action@v2.3.8
         with:
           scan-args: |-
             --recursive
