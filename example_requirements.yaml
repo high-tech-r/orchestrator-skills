@@ -16,7 +16,7 @@ features:
       - "タイトル（必須）と説明（任意）を指定してタスクを作成できる"
       - "タイトルが空の場合はエラーを返す"
       - "作成日時が自動で記録される"
-    tier: "低"
+    tier: "B"
     priority: "高"
     dependencies: []
 
@@ -26,7 +26,7 @@ features:
     acceptance_criteria:
       - "全タスクを作成日時の降順で取得できる"
       - "完了/未完了でフィルタリングできる"
-    tier: "低"
+    tier: "B"
     priority: "高"
     dependencies: ["F-001"]
 

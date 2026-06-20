@@ -41,12 +41,15 @@ project_root/
 │   └── review_map/
 ├── src/                   # ソースコード
 ├── tests/                 # テストコード
-├── requirements.txt       # 本番依存パッケージ（必須）
-├── requirements-dev.txt   # 開発用依存パッケージ（必須）
-├── Dockerfile             # コンテナ定義（必須）
-├── docker-compose.yaml    # コンテナ構成（必須）
+├── <依存定義ファイル>      # 本番依存（必須。言語に応じて requirements.txt / package.json / go.mod 等）
+├── <dev依存定義ファイル>   # 開発用依存（必須。requirements-dev.txt / devDependencies 等）
+├── Dockerfile             # コンテナ定義（必須・言語非依存）
+├── docker-compose.yaml    # コンテナ構成（必須・言語非依存）
 └── .dockerignore
 ```
+
+依存定義とロックファイルは**言語ごとに変わる**が、Docker（Dockerfile + docker-compose）は
+再現性担保のため**言語を問わず必須**とする。
 
 ### 5. Skill呼び出し順序
 0. `requirements` — 要件定義（対話型。ユーザー承認まで次に進まない）

@@ -12,9 +12,13 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: "スキャン対象URL（省略時は docker-compose で起動した localhost:8000）"
+        description: "スキャン対象URL（省略時は docker-compose で起動した localhost:<port>）"
         required: false
         default: ""
+      app_port:
+        description: "docker-compose で起動するアプリのポート（言語・FW非依存。既定 8000）"
+        required: false
+        default: "8000"
 
 permissions:
   contents: read
@@ -30,11 +34,12 @@ jobs:
       - name: アプリを起動（docker-compose がある場合）
         if: ${{ github.event.inputs.target_url == '' }}
         run: |
+          PORT="${{ github.event.inputs.app_port || '8000' }}"
           if [ -f docker-compose.yaml ] || [ -f docker-compose.yml ]; then
             docker compose up -d --build
-            echo "起動待機..."
+            echo "起動待機（localhost:${PORT}）..."
             for i in $(seq 1 30); do
-              curl -sf http://localhost:8000/ >/dev/null 2>&1 && break || sleep 2
+              curl -sf "http://localhost:${PORT}/" >/dev/null 2>&1 && break || sleep 2
             done
           else
             echo "docker-compose が無いためスキップ対象がありません" && exit 1
@@ -43,7 +48,7 @@ jobs:
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: ${{ github.event.inputs.target_url != '' && github.event.inputs.target_url || 'http://localhost:8000' }}
+          target: ${{ github.event.inputs.target_url != '' && github.event.inputs.target_url || format('http://localhost:{0}', github.event.inputs.app_port || '8000') }}
           # 誤検知の抑制ルールは .zap/rules.tsv に記述する
           rules_file_name: ".zap/rules.tsv"
           # baseline は警告止まり。マージブロックしたい場合は cmd_options に -I を外す

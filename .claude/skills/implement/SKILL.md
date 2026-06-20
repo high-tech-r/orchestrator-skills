@@ -25,13 +25,13 @@
 - 新しいライブラリを使う場合、**必ず** requirements.txt（Python）/ package.json（Node.js）に追加する
 - バージョンは範囲指定で固定する（例: `pydantic>=2.0.0,<3.0.0`）
 - dev用のパッケージ（テスト用等）は requirements-dev.txt / devDependencies に追加
-- コード内で使うライブラリが requirements.txt に記載されていない状態を**絶対に作らない**
+- コード内で使うライブラリが依存定義ファイル（requirements.txt / package.json / go.mod 等）に記載されていない状態を**絶対に作らない**
 - Dockerfileの再ビルドで依存が解決される状態を常に維持する
 
 ### slopsquatting対策（必須・レベル2セキュリティ）
 AIが幻覚した実在しないパッケージ／タイポスクワッティングを混入させない。
 - **実在性が確認できないパッケージは追加しない。** 標準的で広く使われているパッケージのみを使う。
-- 一般的でないパッケージ名を使う場合、requirements.txt のコメントで「PyPIで実在・正規性を確認すべき」旨を明記し、ユーザーにレビューを促す
+- 一般的でないパッケージ名を使う場合、依存定義ファイルのコメントで「各レジストリ（PyPI / npm 等）で実在・正規性を確認すべき」旨を明記し、ユーザーにレビューを促す
 - バージョンを固定し、差分がレビューで明確に出る状態を保つ（CIの Trivy / pip-audit / OSV-Scanner が照合する）
 - 詳細: `docs/security/LEVEL2_SECURITY.md`
 

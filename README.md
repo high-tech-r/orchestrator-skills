@@ -63,6 +63,8 @@ claude
 
 Claude Code が `CLAUDE.md` を読み、要件定義 → 設計 →[Gate 1]→ 実装＋テスト →[Gate 2]→ レビューガイド の順にパイプラインを回し、`docs/` `src/` `tests/` に成果物を生成します。中断しても次回 `前回の続きからお願いします` で再開できます。
 
+> 上の技術スタックは一例です。**言語・フレームワークは任意**（Node.js / Go / Java など）。同梱のセキュリティCIも言語非依存で、使う言語に合わせて一部だけ設定を有効化します（[詳細](docs/security/LEVEL2_SECURITY.md)）。
+
 ---
 
 以下は各トピックの詳細です。
@@ -153,11 +155,11 @@ orchestrator-skills/
 
 ## セキュリティ（レベル2 / 無料ツールのみ）
 
-AI駆動開発向けのレベル2セキュリティを無料ツールだけで組み込み済み。
+AI駆動開発向けのレベル2セキュリティを無料ツールだけで組み込み済み。**言語非依存**で動作する。
 詳細とセットアップ手順は [`docs/security/LEVEL2_SECURITY.md`](docs/security/LEVEL2_SECURITY.md) を参照。
 
 - pre-commit（Gitleaks）でコミット前にシークレットをブロック
-- GitHub Actions（`Security (Level 2)`）でPR時に TruffleHog / Semgrep / Trivy / pip-audit / OSV-Scanner を自動実行し、品質ゲートでマージを制御
+- GitHub Actions（`Security (Level 2)`）でPR時に TruffleHog / Semgrep / Trivy / OSV-Scanner を自動実行し、品質ゲートでマージを制御（いずれも言語自動判定。Python向けの pip-audit は任意で自動スキップ）
 - Dependabot・Secret scanning・Socket(OSS無料App) はリポジトリ設定で有効化（手動）
 - DAST（OWASP ZAP）は手動実行ワークフロー
 - `.claude/settings.json` の `permissions.deny` で機密ファイルをAIから遮断
