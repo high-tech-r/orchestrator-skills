@@ -1,19 +1,13 @@
 # カテゴリ2: SCA（脆弱性スキャン）— Dependabot（GitHub利用者は無料）
 # 既知のCVEを持つ依存パッケージを検出し、自動でバージョンアップPRを作成する。
 # 別途リポジトリ設定で "Dependabot alerts" / "Dependabot security updates" を有効化すること。
+#
+# ▼ 言語非依存テンプレート ▼
+#   GitHub Actions と Docker（多くのプロジェクトで共通）のみ既定で有効。
+#   プロジェクトの言語に合わせて、該当する package-ecosystem のコメントを外すこと。
 version: 2
 updates:
-  # Python（生成プロジェクトの本番・開発依存）
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "security"
-
-  # GitHub Actions 自体の依存も更新対象にする
+  # GitHub Actions 自体の依存（言語を問わず常に対象）
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -22,7 +16,7 @@ updates:
       - "dependencies"
       - "ci"
 
-  # コンテナ（生成プロジェクトの Dockerfile）
+  # コンテナ（Dockerfile がある場合）
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -30,3 +24,23 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+
+  # --- 以下はプロジェクトの言語に合わせて有効化する ---
+  # Python（requirements*.txt / poetry / Pipfile）
+  # - package-ecosystem: "pip"
+  #   directory: "/"
+  #   schedule: { interval: "weekly" }
+  #   labels: ["dependencies", "security"]
+  #
+  # Node.js（package.json）
+  # - package-ecosystem: "npm"
+  #   directory: "/"
+  #   schedule: { interval: "weekly" }
+  #   labels: ["dependencies", "security"]
+  #
+  # Go（go.mod）       -> "gomod"
+  # Rust（Cargo.toml） -> "cargo"
+  # Ruby（Gemfile）    -> "bundler"
+  # Java（Maven）      -> "maven"  /  Gradle -> "gradle"
+  # PHP（composer）    -> "composer"
+  # .NET（nuget）      -> "nuget"
