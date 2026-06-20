@@ -1,0 +1,23 @@
+# レベル2セキュリティ: 第1層（コミット前のローカルブロック）
+# セットアップ:
+#   pip install pre-commit
+#   pre-commit install
+# 全ファイルを手動スキャン:
+#   pre-commit run --all-files
+repos:
+  # --- カテゴリ1: シークレットスキャン（Gitleaks / 無料・MIT） ---
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: Gitleaks（シークレット検出）
+
+  # --- 基本的な衛生チェック（無料） ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key        # 秘密鍵の混入を検出
+      - id: check-added-large-files   # 巨大ファイルの誤コミット防止
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict

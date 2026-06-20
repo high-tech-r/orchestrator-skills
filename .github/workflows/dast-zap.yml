@@ -1,0 +1,50 @@
+# カテゴリ8: DAST（動的解析）— OWASP ZAP Baseline（無料）
+# レベル2では「推奨」。実行中のアプリに外部からリクエストを送るブラックボックステスト。
+#
+# 注意:
+# - DAST は "起動済みのアプリ" が必要。生成プロジェクトに docker-compose.yaml がある前提で
+#   コンテナを立ち上げてからスキャンする。
+# - SAST と違いビルドのたびに回すと重いので、手動実行（workflow_dispatch）と
+#   ステージングデプロイ後の実行を想定している。
+name: DAST - OWASP ZAP
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "スキャン対象URL（省略時は docker-compose で起動した localhost:8000）"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write   # ZAPアクションが警告をIssueに起票するため
+
+jobs:
+  zap-baseline:
+    name: ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: アプリを起動（docker-compose がある場合）
+        if: ${{ github.event.inputs.target_url == '' }}
+        run: |
+          if [ -f docker-compose.yaml ] || [ -f docker-compose.yml ]; then
+            docker compose up -d --build
+            echo "起動待機..."
+            for i in $(seq 1 30); do
+              curl -sf http://localhost:8000/ >/dev/null 2>&1 && break || sleep 2
+            done
+          else
+            echo "docker-compose が無いためスキップ対象がありません" && exit 1
+          fi
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ github.event.inputs.target_url != '' && github.event.inputs.target_url || 'http://localhost:8000' }}
+          # 誤検知の抑制ルールは .zap/rules.tsv に記述する
+          rules_file_name: ".zap/rules.tsv"
+          # baseline は警告止まり。マージブロックしたい場合は cmd_options に -I を外す
+          fail_action: false

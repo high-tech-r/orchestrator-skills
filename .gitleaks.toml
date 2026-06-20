@@ -1,0 +1,19 @@
+# Gitleaks 設定（カテゴリ1: シークレットスキャン）
+# 標準ルールセットを継承し、プロジェクト固有のルール／除外を追記する。
+[extend]
+useDefault = true
+
+# 自社のAPIキーフォーマットなど、標準ルールにないパターンをここに追加する。
+# 例:
+# [[rules]]
+# id = "my-company-api-key"
+# description = "MyCompany API key"
+# regex = '''(?i)mycompany_(live|test)_[0-9a-z]{32}'''
+# tags = ["api-key", "mycompany"]
+
+[allowlist]
+description = "誤検知の除外設定"
+paths = [
+  '''(.*?)example_requirements\.yaml''',  # サンプル要件ファイル
+  '''(.*?)\.md$''',                        # ドキュメント内の例示
+]
