@@ -21,6 +21,26 @@
 ブロック列「✅」= 検出時にCIが失敗し、PRのマージを自動拒否する（品質ゲート）。
 これがレベル1（人間レビュー頼み）との本質的な違い。
 
+## 証跡（顧客説明用）
+
+スキャン結果は次の場所で確認・取得できる。一人SIerが顧客に「どう担保し、どうテストしたか」を
+説明するための材料になる。
+
+| 種類 | 場所 | private無料か |
+|---|---|---|
+| 各スキャンの合否・ログ | Actions → `Security (Level 2)` の各run | ✅ |
+| スキャン指摘の一覧（SARIF） | Security → Code scanning alerts | ⚠️ private は GHAS(有料) |
+| **ダウンロード可能な証跡** | 各runの **Artifacts**（`sca-evidence` / `sast-semgrep-sarif`） | ✅ private でも無料 |
+| 依存の脆弱性 | Security → Dependabot alerts | ✅ |
+
+`sca-evidence` 成果物には **SBOM（`sbom.cdx.json` / CycloneDX）**・**ライセンスレポート**・
+**Trivy SARIF** が含まれる。private リポジトリで Code scanning UI が使えなくても、
+この Artifacts が証跡として残る。
+
+顧客に渡す体裁にまとめるには:
+- `SECURITY.md` … 顧客向けの「どう担保・テストしているか」の説明書（常設）
+- `security-report` スキル … 最新スキャン結果を日付つきレポート `docs/security/report_YYYY-MM-DD.md` に集約
+
 ## セットアップ手順
 
 ### 1. ローカル（各開発者が1回だけ）

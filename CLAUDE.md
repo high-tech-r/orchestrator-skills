@@ -85,6 +85,9 @@ project_root/
 6. `consistency-check` — Gate 2（設計⇔コード⇔テスト突合 + Tier判定妥当性検証）
 7. `review-guide` — テスト手順書生成（`review_tier_definition.yaml` に基づくTier自動判定）
 
+オンデマンド（パイプライン外・必要時に単発実行）:
+- `security-report` — 顧客向けセキュリティ証跡レポート生成（リリース・納品・定期報告時）
+
 ### 6. 差し戻し時のルール
 - 問題点と修正方針を具体的に指示に含める
 - feedback_historyに全履歴を残す（同じ指摘の繰り返しを防ぐ）
