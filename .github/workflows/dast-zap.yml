@@ -29,7 +29,7 @@ jobs:
     name: ZAP Baseline Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: アプリを起動（docker-compose がある場合）
         if: ${{ github.event.inputs.target_url == '' }}

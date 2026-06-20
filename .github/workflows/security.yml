@@ -31,7 +31,7 @@ jobs:
     name: Secrets - TruffleHog
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # git履歴全体をスキャンするため
       - name: TruffleHog（検証つきスキャン）
@@ -46,7 +46,7 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Semgrep scan（無料レジストリルール・言語自動判定）
         run: |
           # p/default はリポジトリ内の言語をSemgrepが自動判定して該当ルールを適用する。
@@ -83,7 +83,7 @@ jobs:
     name: SCA + License - Trivy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # 品質ゲート: CRITICAL/HIGH があれば失敗（マージブロック）
       - name: Trivy（脆弱性 + ライセンス・ゲート）
         uses: aquasecurity/trivy-action@master
@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
     if: hashFiles('**/requirements*.txt') != ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -166,7 +166,7 @@ jobs:
     # 主要言語の lockfile を広くカバー（Python/Node/Go/Rust/Ruby/Java/PHP 等）。
     if: hashFiles('**/requirements*.txt', '**/poetry.lock', '**/Pipfile.lock', '**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/go.sum', '**/Cargo.lock', '**/Gemfile.lock', '**/composer.lock', '**/gradle.lockfile', '**/pom.xml') != ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: OSV-Scanner
         uses: google/osv-scanner-action@v1.9.1
         with:
