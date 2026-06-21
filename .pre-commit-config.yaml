@@ -21,3 +21,11 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-merge-conflict
+
+  # --- ワークフロー定義の検証（GitHub上でしか出ない不具合をローカルで弾く） ---
+  # ジョブレベル if での hashFiles()、無効なアクション参照 等を検出。
+  # Docker を使う hook（本フレームワークは Docker 必須のため前提を満たす）。
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint-docker         # .github/workflows/*.yml を検証
