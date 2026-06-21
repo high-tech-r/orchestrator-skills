@@ -14,6 +14,10 @@
 - `.claude/skills/review-guide/review_tier_definition.yaml`（Tier判定定義）
 - 生成されたソースコードのファイル一覧
 - `docker-compose.yaml`（環境構築手順に必要）
+- **`.orchestrator/stack-profile.md`（アクティブなスタックプロファイル）** ←
+  起動・動作確認・テスト実行・テストダブルの**具体コマンド**はここに従う。
+  本SKILL内の手順例（FastAPI/Swagger）はあくまで例。プロファイルが Laravel なら
+  `php artisan serve` / `php artisan test` / Mailpit / `Mail::assertSent` 等に読み替える。
 
 ## Tier判定ロジック
 
@@ -77,7 +81,8 @@
 3. 表示されない場合 → 30秒待って再実行。それでもダメなら「トラブルシューティング」参照
 
 > 以下のテスト手順は Swagger UI を持つフレームワーク（例: FastAPI）を例に書いている。
-> Swagger UI が無い場合は、各操作を `curl` などのAPIクライアントに読み替える。
+> **実際の起動・確認・テストのコマンドは `.orchestrator/stack-profile.md` に従うこと。**
+> Swagger UI が無いスタック（例: Laravel）は、各操作を `curl` や `php artisan` 等に読み替える。
 
 ---
 
