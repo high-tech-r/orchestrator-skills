@@ -111,8 +111,11 @@ docs/
 
 #### 4-1. `.github/dependabot.yml` の該当エコシステムを有効化
 
-`tech_stack.language` を下表で引き、対応する `package-ecosystem` ブロックの
+まず `.github/dependabot.yml` が無ければ、テンプレート `templates/dependabot.yml` を
+`.github/dependabot.yml` にコピーする（Dependabot はこのパスにある時のみ動作する）。
+次に `tech_stack.language` を下表で引き、対応する `package-ecosystem` ブロックの
 コメントを外す（`github-actions` と `docker` は既定で有効なのでそのまま）。
+`labels:` を使う場合は、対象リポジトリに同名ラベルが存在することを確認する（無ければ作成 or 行を削除）。
 
 | language | package-ecosystem | 依存ファイルの目安 |
 |---|---|---|
