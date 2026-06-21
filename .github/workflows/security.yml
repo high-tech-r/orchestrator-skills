@@ -17,6 +17,15 @@
 #   5. SAST（AI生成コード特化） -> Semgrep AI Security + Shadow AI ルール
 #   6. ライセンススキャン       -> Trivy（license スキャナ・多言語）
 #   8. DAST                    -> 別ワークフロー（dast-zap.yml）で実行
+#
+# ▼ 段階導入トグル（既存PJ配慮）: リポジトリ変数 SECURITY_GATE_MODE ▼
+#   - 未設定 or "block"（既定）: findings があればジョブを赤にする＝品質ゲート。
+#   - "report": findings があってもジョブは緑（助言モード）。SARIF/artifact は出る。
+#   既存プロジェクトは "report" で導入→既存指摘を棚卸し→"block" に切替→ブランチ保護で Required、
+#   の順で段階導入する（詳細: docs/security/LEVEL2_SECURITY.md）。
+#   ※ 秘密情報スキャン（TruffleHog）はモードに関わらず常に block（新規の漏洩は赦さない）。
+#   設定: Settings → Secrets and variables → Actions → Variables → New variable
+#         Name=SECURITY_GATE_MODE / Value=report（または block）
 name: Security (Level 2)
 
 on:
@@ -52,6 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Semgrep scan（無料レジストリルール・言語自動判定）
+        # report モードでは findings があっても赤にしない（助言モード）
+        continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
         run: |
           # p/default はリポジトリ内の言語をSemgrepが自動判定して該当ルールを適用する。
           # 特定言語に寄せたい場合のみ p/python, p/javascript, p/golang 等を追加する。
@@ -91,12 +102,13 @@ jobs:
       - uses: actions/checkout@v4
       # 品質ゲート: CRITICAL/HIGH があれば失敗（マージブロック）
       - name: Trivy（脆弱性 + ライセンス・ゲート）
+        continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
           scanners: vuln,license,secret,misconfig
           severity: CRITICAL,HIGH
-          exit-code: '1'        # CRITICAL/HIGH があればマージブロック
+          exit-code: '1'        # CRITICAL/HIGH があればマージブロック（report モードでは緑のまま）
           ignore-unfixed: true
 
       # --- 以下は証跡（顧客説明用の成果物）。スキャンは失敗させない ---
@@ -168,6 +180,7 @@ jobs:
           python-version: '3.x'
       - name: pip-audit
         if: steps.detect.outputs.found == 'true'
+        continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
         run: |
           pip install pip-audit
           status=0
@@ -204,6 +217,7 @@ jobs:
           fi
       - name: OSV-Scanner
         if: steps.detect.outputs.found == 'true'
+        continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
         uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
         with:
           scan-args: |-
@@ -234,4 +248,5 @@ jobs:
           tools: composer
       - name: composer audit（lock を直接監査）
         if: steps.detect.outputs.found == 'true'
+        continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
         run: composer audit --locked --no-interaction

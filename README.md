@@ -114,6 +114,11 @@ docs/security/LEVEL2_SECURITY.md                 # 手順書
 
 `claude` を起動して `前回の続きから` ではなく新しい要件を投入すれば、既存コードを文脈に含めてパイプラインが回る。**言語別のセキュリティ設定（dependabot 等）は `orchestrate` スキルが初期化時に自動で有効化する**ため、利用者がYAMLを手で触る必要はない（手動でやる場合は [`docs/security/LEVEL2_SECURITY.md`](docs/security/LEVEL2_SECURITY.md) 参照）。
 
+> ⚠️ **既存PJはセキュリティゲートを即 block にしない**。過去の負債（古いCVE・既存指摘）で
+> 無関係なPRまで赤になる。**`SECURITY_GATE_MODE=report`（助言モード）で導入 → 既存指摘を棚卸し
+> → `block` → ブランチ保護で Required** の順で段階導入する（[手順](docs/security/LEVEL2_SECURITY.md#既存プロジェクトへの段階導入重要)）。
+> 新規PJは最初から block（既定）でよい。秘密情報スキャンは常に block。
+
 ---
 
 以下は各トピックの詳細です。
