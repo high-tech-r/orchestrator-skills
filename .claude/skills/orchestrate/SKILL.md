@@ -103,6 +103,20 @@ __pycache__/          # 言語の生成物に変更（node_modules/ など）
 docs/
 ```
 
+#### スタックプロファイル（必須）
+「どう起動し・どう確認し・どうテストし・どう外部作用をfakeするか」をスタックごとに記した
+プロファイルを、**適用先プロジェクトの `.orchestrator/stack-profile.md`** に用意する。
+`design` / `test-design` / `implement` / `review-guide` はこれを参照する（FastAPI前提を脱するため）。
+
+手順:
+1. `.orchestrator/stack-profile.md` が既にあればそれを使う。
+2. 無ければ `tech_stack` に一致する同梱例（`templates/stack-profiles/laravel.md` /
+   `fastapi.md`）を下敷きに、`.orchestrator/stack-profile.md` を作る。
+3. 一致する例が無ければ `templates/stack-profiles/_template.md` の契約（全見出し）に沿って
+   **実スタック用に生成**する。
+4. 同梱例は**リファレンス（権威ではない）**。現行バージョンとコマンド/イディオムが食い違うと
+   気づいたら、プロジェクト側のプロファイルを正として更新する（メタ情報の最終確認日も更新）。
+
 ### 4. セキュリティ設定を技術スタックに合わせる（必須）
 
 同梱のセキュリティCIは言語非依存だが、**依存パッケージのスキャンだけは言語ごとに

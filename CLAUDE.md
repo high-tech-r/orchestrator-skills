@@ -55,7 +55,8 @@
 ```
 project_root/
 ├── .orchestrator/
-│   └── project_status.yaml
+│   ├── project_status.yaml
+│   └── stack-profile.md   # アクティブなスタックプロファイル（起動/テスト/fake等の具体）
 ├── docs/
 │   ├── requirements.md    # 要件定義書（Phase 0で生成）
 │   ├── backlog.md

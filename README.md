@@ -180,7 +180,11 @@ orchestrator-skills/
 │   │   └── dast-zap.yml             # DAST（OWASP ZAP・手動実行）
 │   └── PULL_REQUEST_TEMPLATE.md     # AI利用チェック付きPRテンプレート
 ├── templates/
-│   └── dependabot.yml               # 依存更新の設定テンプレ（.github/ にコピーして使う）
+│   ├── dependabot.yml               # 依存更新の設定テンプレ（.github/ にコピーして使う）
+│   └── stack-profiles/              # スタック別の起動/テスト/fake手順
+│       ├── _template.md             # プロファイルの契約（観点）
+│       ├── laravel.md / fastapi.md  # リファレンス例（要確認・権威ではない）
+│       └── README.md
 ├── .pre-commit-config.yaml          # Gitleaks等のコミット前フック
 ├── .gitleaks.toml                   # シークレットスキャンのルール
 ├── .zap/rules.tsv                   # ZAP誤検知の抑制ルール
@@ -208,6 +212,24 @@ orchestrator-skills/
 ├── src/                       # ソースコード
 └── tests/                     # テストコード
 ```
+
+## スタックプロファイル（言語/FW非依存の仕組み）
+
+「設計→実装→テスト→レビュー」の**観点はフレームワークが所有**し、**具体（起動・テスト・
+外部作用の fake 等のコマンド/イディオム）はスタックプロファイルに分離**する。これにより
+FastAPI 前提を脱し、`design` は HTTP 以外（ジョブ/イベント/CLI/スケジュール）も扱える。
+
+- フレームワークが持つのは**契約**: `templates/stack-profiles/_template.md`
+  （起動 / テスト / 種別ごとの確認 / テストダブル / 依存 / 落とし穴）
+- 同梱の `laravel.md` / `fastapi.md` は**リファレンス例**（権威ではない・バージョンで腐る前提で「要確認」明記）
+- 初期化時、`orchestrate` が適用先の**プロジェクト側 `.orchestrator/stack-profile.md`** を
+  用意（一致する例があれば下敷きに、無ければ契約に沿って生成）。以後 `design` /
+  `test-design` / `implement` / `review-guide` がこれを参照する
+
+> 同梱例が古くても害は小さい（権威ではないため）。適用先の Claude Code が現行バージョンとの
+> 食い違いに気づいたら、プロジェクト側のプロファイルを更新する ── という前提で設計している。
+
+詳細は [`templates/stack-profiles/README.md`](templates/stack-profiles/README.md) を参照。
 
 ## セキュリティ（レベル2 / 無料ツールのみ）
 
