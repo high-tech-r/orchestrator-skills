@@ -33,8 +33,12 @@ jobs:
 
       - name: アプリを起動（docker-compose がある場合）
         if: ${{ github.event.inputs.target_url == '' }}
+        env:
+          # github コンテキストは信頼できない入力。run: に直接展開せず env 経由で受ける
+          # （シェルインジェクション対策 / semgrep run-shell-injection）
+          APP_PORT: ${{ github.event.inputs.app_port || '8000' }}
         run: |
-          PORT="${{ github.event.inputs.app_port || '8000' }}"
+          PORT="${APP_PORT:-8000}"
           if [ -f docker-compose.yaml ] || [ -f docker-compose.yml ]; then
             docker compose up -d --build
             echo "起動待機（localhost:${PORT}）..."
