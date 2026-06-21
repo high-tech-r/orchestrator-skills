@@ -9,7 +9,11 @@
 
 ユーザーから要件を受け取ったら、以下を作成する。
 
-### 1. backlog.md を作成
+**ファイル配置の原則（厳守）**: 状態管理は `.orchestrator/`、成果物は `docs/` に分ける。
+- 状態（再開地点）: `.orchestrator/project_status.yaml`
+- 成果物: `docs/backlog.md` / `docs/requirements.md` / `docs/design/` 等
+
+### 1. `docs/backlog.md` を作成
 
 ```markdown
 # プロダクトバックログ
@@ -25,7 +29,7 @@
 | F-001 | xxx | 高 | ⬜ 未着手 | B | xxx |
 ```
 
-### 2. project_status.yaml を作成
+### 2. `.orchestrator/project_status.yaml` を作成
 
 ```yaml
 project:
