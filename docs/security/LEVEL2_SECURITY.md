@@ -54,6 +54,27 @@
 - `security-report` スキル … 最新スキャン結果を `docs/delivery/security_report_YYYY-MM-DD.md` に集約
   （納品ドキュメントは `delivery` スキルで `docs/delivery/` に一括パッケージ化）
 
+## 既存プロジェクトへの段階導入（重要）
+
+既存リポジトリには**過去の負債**（古いCVE依存・既存のSemgrep指摘・過去にコミットされた秘密情報）が
+必ずある。Trivy/Semgrep は**ツリー全体**を見るため、`block` のまま導入すると**無関係なPRまで赤**になり、
+チームに嫌われて無効化される。新規PJと違い、既存PJは必ず次の順で段階導入する。
+
+ゲートは**2層**で制御する:
+- **モード**（`SECURITY_GATE_MODE` リポジトリ変数）= findings で赤くするか。`report`=助言/緑、`block`(既定)=赤。
+- **Required**（ブランチ保護）= 赤でマージを止めるか。
+
+| 段階 | やること | 状態 |
+|---|---|---|
+| 1. 可視化 | `SECURITY_GATE_MODE=report` を設定（Settings → Secrets and variables → Actions → Variables）。走らせて現状把握 | 緑・助言。マージは止まらない |
+| 2. 棚卸し | 既存指摘を「修正／受容／後回し」に仕分け。受容は `.trivyignore`・`.semgrepignore`・`.gitleaksignore` に記載。**秘密情報は ignore せずローテーション**（`--only-verified` で落ちる＝今も有効な鍵） | — |
+| 3. 締める | `SECURITY_GATE_MODE=block` に切替。以後 findings で赤 | 赤。ただしまだマージは可能 |
+| 4. 強制 | ブランチ保護で `Security (Level 2)` を Required に | 赤＝マージ不可（自動ブロック） |
+
+- **新規PJ**は最初から `block`（既定）＋ Required でよい。段階導入は不要。
+- **秘密情報スキャン（TruffleHog）はモードに関わらず常に block**。新規の漏洩は赦さない。
+- フレームワーク本体のリポジトリは検証済みのため `block`（既定）で運用している。
+
 ## セットアップ手順
 
 ### 1. ローカル（各開発者が1回だけ）
