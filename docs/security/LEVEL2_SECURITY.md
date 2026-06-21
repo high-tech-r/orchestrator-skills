@@ -37,6 +37,18 @@
 **Trivy SARIF** が含まれる。private リポジトリで Code scanning UI が使えなくても、
 この Artifacts が証跡として残る。
 
+### CI実走時の注意（実プロジェクト適用で判明）
+- **SARIF アップロードは best-effort**: private + GHAS無効リポでは Code Scanning へのアップロードが
+  失敗する。各 `upload-sarif` ステップは `continue-on-error: true` とし、**証跡は artifact 側で確保**
+  しているのでジョブは赤にならない。
+- **言語別SCAは検出ゲート式**: `pip-audit`(Python) / `composer-audit`(PHP) は対象ファイル
+  （`requirements*.txt` / `composer.lock`）が無ければステップごとスキップ。
+  ※ ジョブレベルの `if:` で `hashFiles()` は使えない（ワークフロー全体が検証エラーになる）。
+  必ず「検出ステップ＋ステップレベル `if`」で分岐する。
+- **ワークフローの検証**: `.github/workflows/actionlint.yml` と pre-commit の actionlint で、
+  「GitHub上でしか顕在化しない」不具合（上記 `hashFiles()` 誤用・無効なアクション参照 等）を
+  事前に弾く。テンプレ変更時は `actionlint` を必ず通すこと。
+
 顧客に渡す体裁にまとめるには:
 - `SECURITY.md` … 顧客向けの「どう担保・テストしているか」の説明書（常設）
 - `security-report` スキル … 最新スキャン結果を `docs/delivery/security_report_YYYY-MM-DD.md` に集約

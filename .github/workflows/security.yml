@@ -2,12 +2,16 @@
 # すべて無料ツールで構成。基準を満たさないPRのマージを自動でブロックする。
 #
 # 言語非依存。Trivy / OSV-Scanner / Semgrep / TruffleHog が言語・エコシステムを
-# 自動判定する。pip-audit のみ Python 専用の任意ジョブで、requirements*.txt が
-# 無いプロジェクトでは自動でスキップされる。
+# 自動判定する。pip-audit(Python) / composer-audit(PHP) は言語専用の任意ジョブで、
+# 対象ファイルが無ければ「検出ステップ＋ステップレベル if」でスキップされる。
+#
+# ※重要: ジョブレベルの `if:` では hashFiles() を使えない（context availability の制約で
+#   ワークフロー全体が検証エラーになる）。言語判定は必ず steps 内の検出ステップで行うこと。
+#   変更時は actionlint で検証する（.github/workflows/actionlint.yml / pre-commit）。
 #
 # 対応カテゴリ:
 #   1. シークレットスキャン     -> TruffleHog（検証機能つき・言語非依存）
-#   2. SCA（脆弱性スキャン）    -> Trivy + OSV-Scanner（多言語）/ pip-audit（Python任意）
+#   2. SCA（脆弱性スキャン）    -> Trivy + OSV-Scanner（多言語）/ pip-audit(Python) / composer-audit(PHP)
 #   3. SCA（slopsquatting）    -> OSV-Scanner（補助）/ ※Socket GitHub App は別途有効化
 #   4. SAST（汎用）            -> Semgrep OSS CLI（言語自動判定）
 #   5. SAST（AI生成コード特化） -> Semgrep AI Security + Shadow AI ルール
@@ -67,6 +71,7 @@ jobs:
           #   --config p/ai-security  --config p/shadow-ai
       - name: SARIF を Code Scanning にアップロード
         if: always()
+        continue-on-error: true   # private+GHAS無効だと不可。証跡は下の artifact で確保
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
@@ -106,6 +111,7 @@ jobs:
           exit-code: '0'
       - name: Trivy SARIF を Code Scanning にアップロード
         if: always()
+        continue-on-error: true   # private+GHAS無効だと不可。証跡は下の artifact で確保
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy.sarif
@@ -142,20 +148,35 @@ jobs:
   pip-audit:
     name: SCA - pip-audit (Python)
     runs-on: ubuntu-latest
-    if: hashFiles('**/requirements*.txt') != ''
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # ジョブレベル if で hashFiles() は使えないため、検出ステップ＋ステップ if で分岐する
+      - name: requirements の有無を判定
+        id: detect
+        run: |
+          if [ -n "$(find . -name 'requirements*.txt' \
+              -not -path './.git/*' -not -path './vendor/*' -not -path './node_modules/*' \
+              -print -quit)" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: setup-python
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
       - name: pip-audit
+        if: steps.detect.outputs.found == 'true'
         run: |
           pip install pip-audit
-          for f in $(find . -name 'requirements*.txt' -not -path './.git/*'); do
+          status=0
+          while IFS= read -r -d '' f; do
             echo "::group::pip-audit $f"
-            pip-audit -r "$f" || exit 1
+            pip-audit -r "$f" || status=1
             echo "::endgroup::"
-          done
+          done < <(find . -name 'requirements*.txt' -not -path './.git/*' -print0)
+          exit $status
 
   # --- カテゴリ3: SCA（slopsquatting補助）OSV-Scanner / 無料 ---
   # ※ 振る舞い分析による本命の slopsquatting 対策は Socket GitHub App（OSS無料枠）。
@@ -163,13 +184,54 @@ jobs:
   osv:
     name: SCA - OSV-Scanner
     runs-on: ubuntu-latest
-    # 主要言語の lockfile を広くカバー（Python/Node/Go/Rust/Ruby/Java/PHP 等）。
-    if: hashFiles('**/requirements*.txt', '**/poetry.lock', '**/Pipfile.lock', '**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/go.sum', '**/Cargo.lock', '**/Gemfile.lock', '**/composer.lock', '**/gradle.lockfile', '**/pom.xml') != ''
     steps:
       - uses: actions/checkout@v4
+      # 主要言語の lockfile を広くカバー（Python/Node/Go/Rust/Ruby/Java/PHP 等）。
+      # ジョブレベル if で hashFiles() は使えないため、検出ステップ＋ステップ if で分岐する。
+      - name: lockfile の有無を判定
+        id: detect
+        run: |
+          if [ -n "$(find . \( \
+              -name 'requirements*.txt' -o -name poetry.lock -o -name Pipfile.lock \
+              -o -name package-lock.json -o -name yarn.lock -o -name pnpm-lock.yaml \
+              -o -name go.sum -o -name Cargo.lock -o -name Gemfile.lock \
+              -o -name composer.lock -o -name gradle.lockfile -o -name pom.xml \
+            \) -not -path './.git/*' -not -path './vendor/*' -not -path './node_modules/*' \
+            -print -quit)" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: OSV-Scanner
-        uses: google/osv-scanner-action@v1.9.1
+        if: steps.detect.outputs.found == 'true'
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
         with:
           scan-args: |-
             --recursive
             ./
+
+  # --- カテゴリ2: SCA（PHP専用・任意）composer audit / 無料 ---
+  # composer.lock があれば実行。CI で composer install しないため --locked で lock を直接監査する。
+  composer-audit:
+    name: SCA - composer audit (PHP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: composer.lock の有無を判定
+        id: detect
+        run: |
+          if [ -n "$(find . -name composer.lock \
+              -not -path './vendor/*' -not -path './.git/*' -print -quit)" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: PHP をセットアップ
+        if: steps.detect.outputs.found == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+      - name: composer audit（lock を直接監査）
+        if: steps.detect.outputs.found == 'true'
+        run: composer audit --locked --no-interaction

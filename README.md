@@ -177,7 +177,8 @@ orchestrator-skills/
 ├── .github/
 │   ├── workflows/
 │   │   ├── security.yml             # レベル2セキュリティCI（品質ゲート）
-│   │   └── dast-zap.yml             # DAST（OWASP ZAP・手動実行）
+│   │   ├── dast-zap.yml             # DAST（OWASP ZAP・手動実行）
+│   │   └── actionlint.yml           # ワークフロー定義の静的検証（再発防止）
 │   └── PULL_REQUEST_TEMPLATE.md     # AI利用チェック付きPRテンプレート
 ├── templates/
 │   └── dependabot.yml               # 依存更新の設定テンプレ（.github/ にコピーして使う）

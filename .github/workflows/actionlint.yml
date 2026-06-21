@@ -1,0 +1,28 @@
+# ワークフロー定義の静的検証（再発防止）
+# security.yml 等の「GitHub上でしか顕在化しない」不具合（例: ジョブレベル if での hashFiles()、
+# 無効なアクション参照）を、独立したワークフローとして actionlint で検出する。
+# ※ security.yml 自体が壊れても、本ワークフローは別ファイルなので動作し、PR上で不具合を報告する。
+name: Lint Workflows (actionlint)
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
