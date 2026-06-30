@@ -58,6 +58,13 @@
 - これらは **blocking（重要度 high）** とし、1件でもあれば FAIL。テストが通っていても見逃さない
   （偽の成功はテストも「成功」を返すため、テスト緑＝安全ではない）。
 
+### テスト品質の検出基準（共通ルールを参照）
+テストコードの品質は **`.claude/skills/_shared/test-quality-rules.md`（共通テスト品質ルールの真実源）** に照らして検証する。
+特に以下の偽陽性アサーションを検出したら test-design / implement に差し戻す:
+- `assertNull` をキー存在確認（`assertArrayHasKey`）なしで使い、キー不在を見逃している箇所
+- URL フィールドを `assertNotNull` だけで検証し、パス形式（含有）まで確認していない箇所
+- 正常系 API テストでフィールド完全一致チェック（`assertEqualsCanonicalizing` 等）を欠き、内部フィールド漏洩を見逃す箇所
+
 ### 出力
 `docs/consistency_report/F-XXX_gate2.md`
 
