@@ -82,6 +82,22 @@ AIが幻覚した実在しないパッケージ／タイポスクワッティン
 - **テストデータはハードコードする。** ランダムや動的生成ではなく、固定値を使って再現性を保証する。
 - **1テスト関数で1テストケースを検証する。** 複数ケースを1関数にまとめない。
 
+#### 偽陽性を生むアサーションの禁止（F-031 自己レビューで発見・必須）
+「PASSしているのに実は何も保証していない」アサーションを生成しない。
+**イディオムは言語/FWで異なる**（下記は Laravel/PHPUnit の例）。アクティブなスタックプロファイル
+（`.orchestrator/stack-profile.md`）の対応する書き方に読み替えること（例: Python は `assertIn`/`assertEqual(sorted(...))` 等）。
+
+- **ルール1: null チェックはキー存在確認と分離する。**
+  `$res->json('key')` はキー不在でも `null` を返すため、`assertNull` だけでは「キーが存在して null」と「キーが存在しない」を区別できない。
+  必ず `assertArrayHasKey('key', $body)` でキー存在を先に確認してから `assertNull($body['key'])` を行う。
+- **ルール2: URL フィールドは `assertNotNull` ではなくパス形式で検証する。**
+  `assertNotNull($url)` は `"dummy"` でも通過する。
+  `assertStringContainsString('/storage/customers/1/photo.jpg', $url)` のように期待するパスを含むことまで確認する。
+- **ルール3: すべての正常系 API テストでフィールド完全一致チェックを必須とする。**
+  フィールド完全一致を省略すると内部フィールド（`photo_path`, `updated_at` など）の情報漏洩を見逃す。
+  `assertEqualsCanonicalizing(['field1', 'field2'], array_keys($body))` を**全正常系テストで**実施する（一覧APIは各要素にも適用）。
+  これは上の「`set(body.keys()) == {全フィールド}`」ルールの正常系での必須化であり、省略不可。
+
 ## 差し戻し時のルール
 - feedback_historyの過去の指摘を確認し、同じ問題を繰り返さない
 - 修正箇所だけでなく、修正による影響範囲も確認する
