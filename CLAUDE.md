@@ -65,7 +65,7 @@ project_root/
 │   ├── consistency_report/
 │   ├── review_map/
 │   ├── audit/             # 敵対的監査レポート（audit スキルで生成）
-│   └── delivery/          # 顧客向け納品ドキュメント（delivery スキルで生成）
+│   └── delivery/          # ステークホルダー向け納品ドキュメント（delivery スキルで生成）
 ├── src/                   # ソースコード
 ├── tests/                 # テストコード
 ├── <依存定義ファイル>      # 本番依存（必須。言語に応じて requirements.txt / package.json / go.mod 等）
@@ -96,8 +96,8 @@ project_root/
   **パイプラインの Gate には組み込まない**（毎機能実行はコスト過剰。機能 3〜5 件ごと・
   リリース前・四半期のいずれか早い方で実行）。監査スキル自身は修正しない — 起票 →
   ユーザーが優先度判断 → 別ブランチで修正）
-- `security-report` — 顧客向けセキュリティ証跡レポート生成
-- `quality-report` — 顧客向け品質レポート生成（テスト・バグ・ゲート通過状況）
+- `security-report` — ステークホルダー向けセキュリティ証跡レポート生成
+- `quality-report` — ステークホルダー向け品質レポート生成（テスト・バグ・ゲート通過状況）
 - `delivery` — 納品ドキュメント一式を `docs/delivery/` に集約（上記2つ＋設計サマリー＋Gamma取り込み用スライドを内包）
 
 ### 6. 差し戻し時のルール
