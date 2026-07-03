@@ -21,6 +21,9 @@
 | `docs/delivery/presentation_YYYY-MM-DD.md` | 本スキルが生成（**Gamma取り込み用スライドMarkdown**） |
 
 ## 手順
+0. **納品前チェック（推奨）**: 直近のリリース内容に対して `audit` スキル（敵対的コードベース監査）が
+   未実行なら、実行して blocking（高深刻度）指摘ゼロを確認するようユーザーに提案する。
+   未対応の高深刻度指摘が残る場合は、納品前にユーザーへ明示する。
 1. `docs/delivery/` が無ければ作成する。
 2. `quality_report` / `security_report` が未生成なら、それぞれのスキルを実行して生成する。
 3. `design_summary.md` を生成する（下記）。
