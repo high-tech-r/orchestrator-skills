@@ -29,3 +29,7 @@ venv/
 
 # --- WSL/Windows 由来のゴミ（Zone.Identifier 代替データストリーム） ---
 *:Zone.Identifier
+
+# --- 他プロジェクトからの引き渡しパッケージ（コミット禁止・ローカル参照のみ） ---
+docs/framework-handoff/
+docs/orchestrator-export/
