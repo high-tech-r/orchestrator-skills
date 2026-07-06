@@ -33,6 +33,13 @@ tiers:
     requires_human_approval: true
     ai_autonomy: "none"
 
+    # Gate 3: マージ前の敵対的差分レビュー（/code-review）
+    code_review:
+      effort: "max"          # /code-review max（ローカルで実行可能な最深）
+      when: "pre_merge"
+      propose_by_default: true  # フレームワークがマージ前に実行を提案（強く推奨）。ユーザーが実行可否を判断
+      couple_with_human_approval: true   # 既存 requires_human_approval と連動
+
     review_policy:
       scope: "全行"
       method: "line_by_line"
@@ -117,6 +124,12 @@ tiers:
     requires_human_approval: true
     ai_autonomy: "partial"
 
+    # Gate 3: マージ前の敵対的差分レビュー（/code-review）
+    code_review:
+      effort: "high"         # /code-review high（約8サブエージェント）
+      when: "pre_merge"
+      propose_by_default: true  # フレームワークがマージ前に実行を提案（推奨）。ユーザーが実行可否を判断
+
     review_policy:
       scope: "ビジネスロジック重点"
       method: "focused_review"
@@ -187,6 +200,12 @@ tiers:
     requires_human_approval: false
     ai_autonomy: "high"
 
+    # Gate 3: マージ前の敵対的差分レビュー（/code-review）
+    code_review:
+      effort: "medium"       # /code-review medium
+      when: "pre_merge"
+      propose_by_default: false  # 既定では提案しない。risk_signals 該当時のみ提案（小差分はスキップ可）
+
     review_policy:
       scope: "差分のみ"
       method: "diff_review"
@@ -247,6 +266,12 @@ tiers:
     requires_human_approval: false
     ai_autonomy: "full"
 
+    # Gate 3: マージ前の敵対的差分レビュー（/code-review）
+    code_review:
+      effort: "low_or_skip"  # docs/設定/内部リファクタのみは原則スキップ
+      when: "on_request"
+      propose_by_default: false  # 既定では提案しない。risk_signals 該当時のみ effort を上げて提案
+
     review_policy:
       scope: "動作確認"
       method: "visual_check"
@@ -305,6 +330,12 @@ tiers:
     summary: "設定・ボイラープレート — 壊れても再生成すれば済む、パターンが完全に決まっている"
     requires_human_approval: false
     ai_autonomy: "full"
+
+    # Gate 3: マージ前の敵対的差分レビュー（/code-review）
+    code_review:
+      effort: "skip"         # ボイラープレート・自動生成。skip_signals 該当のみの差分はスキップ
+      when: "on_request"
+      propose_by_default: false  # 既定では提案しない。risk_signals 該当時のみ提案（通常は不要）
 
     review_policy:
       scope: "ビルド確認のみ"
@@ -402,6 +433,37 @@ risk_factors:
     question: "この機能の条件分岐や状態管理は複雑か？"
 
 # =============================================================================
+# Gate 3: マージ前 /code-review の effort 引き上げ・スキップ判定
+# =============================================================================
+# 位置づけ: フレームワークが「適切なタイミングで /code-review を提案する」ための判定。
+# 実行を強制するゲートではない（CI非連携・非ブロッキング）。実行可否は常にユーザーが決める。
+# review-guide が変更差分（diff）を見て以下に照合し、該当したら名目 Tier の
+# code_review.effort を機械的に調整して、提案する effort を決める。
+#   - risk_signals に1つでも該当 → effort を1段引き上げ（low→medium→high→max で頭打ち）
+#   - skip_signals「のみ」の差分  → Gate 3 をスキップ（effort: skip）
+# 引き上げは「名目 Tier が低くても、変更の“形”が危険なら深くする」ための機構。
+# CLAUDE.md 最優先原則（実装の誠実性）のホットスポットと直結させている。
+
+code_review_risk_signals:   # 該当したら effort を1段引き上げ
+  - "catch / 例外ハンドリングの変更"                      # 無音握り潰しの温床
+  - "成功/失敗ステータスの判定ロジック"                    # 偽成功
+  - "サービス間契約（URL・レスポンス形状・スキーマ）の変更"  # 疎通不整合
+  - "認証・認可・所有権スコープの変更"
+  - "『送信しました/完了しました』等の成功メッセージ経路"    # 誠実性
+  - "通知・課金・データ削除など不可逆な外向き処理"
+
+skip_signals:               # これ「のみ」の差分は Gate 3 不要
+  - "docs/** のみ"
+  - "テストのみ（プロダクション挙動に触れない）"
+  - "コメント・整形のみ"
+
+# effort 語彙は /code-review の実効値に合わせる（低→高）:
+#   low < medium < high < max
+# （ultra はクラウド多エージェント・課金・ユーザー起動専用のため、パイプラインの
+#  自動 Gate では扱わない。必要なら人間が別途 /code-review ultra を起動する）
+code_review_effort_ladder: ["low", "medium", "high", "max"]
+
+# =============================================================================
 # オーケストレーション向け設定
 # =============================================================================
 
@@ -414,6 +476,11 @@ orchestration:
 
   # AIのみで完結可能なTier
   ai_autonomous: ["B", "C", "D"]
+
+  # Gate 3（/code-review）をフレームワークがデフォルトで提案するTier。
+  # 「提案」であって強制ではない — 実行するかは常にユーザーが決める（CI非連携・非ブロッキング）。
+  # S/A 以外でも code_review_risk_signals 該当時は提案する。
+  code_review_proposed_by_default: ["S", "A"]
 
   # Tier判定をオーバーライドする条件
   overrides:

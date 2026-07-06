@@ -8,7 +8,7 @@
 ## パイプラインフロー
 
 ```
-要件定義（対話型）→ [承認] → 設計 → [Gate 1] → 実装＋テスト設計（並列） → テストコード生成 → [Gate 2] → レビューガイド → 人間レビュー
+要件定義（対話型）→ [承認] → 設計 → [Gate 1] → 実装＋テスト設計（並列） → テストコード生成 → [Gate 2] → レビューガイド → [Gate 3: code-review] → 人間レビュー
 ```
 
 ## 最優先原則: 実装の誠実性（嘘をつくコードの禁止）
@@ -33,7 +33,12 @@
 4. **未実装フローには「準備中」を正直に表示する**
    - APIが未実装のままUIだけ作る場合、ユーザーに伝わるよう明示する（無効な値を送って失敗させない。例: `Authorization: Bearer null` を送らない）
 
-この原則は `implement`（生成時の禁止事項）と `consistency-check` Gate 2（嘘の検出）の両方で強制する。
+この原則は次の3層で強制する:
+1. `implement`（生成時の禁止事項・プロンプト）
+2. `.claude/hooks/honesty_check.py`（**書いた瞬間の機械検査**。Edit/Write/MultiEdit の PostToolUse で
+   無音 catch・握り潰し・`Bearer null` 等の構文的ホットスポットを検出し、Claude に修正/釈明を求める。
+   非致命。`.claude/settings.json` の `hooks` で発火）
+3. `consistency-check` Gate 2（設計⇔コード⇔テスト突合での嘘の検出）
 
 ## 実行ルール
 
@@ -49,6 +54,10 @@
 ### 3. Gate判定
 - Gate 1（設計レビュー）: 設計完了後、要件カバレッジ・矛盾・曖昧性をチェック
 - Gate 2（整合性チェック）: 実装＋テスト完了後、設計書⇔コード⇔テストの突合
+- Gate 3（差分レビュー）: review-guide 後・マージ前に `/code-review` で変更差分を敵対的にレビュー。
+  **強制ゲートではなく、フレームワークが適切なタイミングで実行を「提案」する**（CI非連携・非ブロッキング。
+  実行可否は常にユーザーが決める）。Tierの `code_review.effort` と `code_review_risk_signals` で
+  提案する深さを自動決定。S/A はデフォルトで提案、B 以下は risk_signals 該当時に提案
 - 各Gateのやり直し上限は3回。超えたらユーザーにエスカレーション
 
 ### 4. 成果物の保存場所
@@ -86,7 +95,16 @@ project_root/
 4. `implement` — ソースコード生成
 5. `test-design` — テスト仕様書生成（4と並列可）
 6. `consistency-check` — Gate 2（設計⇔コード⇔テスト突合 + Tier判定妥当性検証）
-7. `review-guide` — テスト手順書生成（`review_tier_definition.yaml` に基づくTier自動判定）
+7. `review-guide` — テスト手順書生成（`review_tier_definition.yaml` に基づくTier自動判定 + Gate 3 推奨 effort 算出）
+8. `/code-review` — **Gate 3（マージ前の敵対的差分レビュー）**。review-guide が算出した
+   Tierの `code_review.effort` での実行を**フレームワークがユーザーに提案する**（強制ではない）。
+   - S=max / A=high / B=medium / C=low_or_skip / D=skip（`review_tier_definition.yaml`）
+   - `code_review_risk_signals`（catch変更・成功判定・サービス間契約・認証/認可・成功メッセージ経路・
+     不可逆な外向き処理）に該当したら effort を1段引き上げ。`skip_signals`「のみ」の差分はスキップ
+   - **S/A はデフォルトで提案**（`code_review_proposed_by_default`）、B 以下は risk_signals 該当時に提案。
+     いずれも**実行可否はユーザーが決める**（CI非連携・非ブロッキング。マージ可否は人間が最終判断）
+   - 位置づけ: Gate 2（縦整合）・audit（全域・定期）が拾えない**差分単位の潜在バグ**を埋める第三層。
+     多くの実バグを摘出できるため提案として組み込むが、毎回の強制実行はしない
 
 オンデマンド（パイプライン外・必要時に単発実行）:
 - `audit` — 敵対的コードベース監査（機能開発が一巡したとき・リリース前・定期実行。
