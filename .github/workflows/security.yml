@@ -44,11 +44,11 @@ jobs:
     name: Secrets - TruffleHog
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0   # git履歴全体をスキャンするため
       - name: TruffleHog（検証つきスキャン）
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@f2cd191b97098913a07522227d2b5e40e57252f4 # main
         with:
           extra_args: --only-verified   # "現在も有効な"シークレットだけで失敗させる
 
@@ -59,7 +59,7 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Semgrep scan（無料レジストリルール・言語自動判定）
         # report モードでは findings があっても赤にしない（助言モード）
         continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
@@ -83,13 +83,13 @@ jobs:
       - name: SARIF を Code Scanning にアップロード
         if: always()
         continue-on-error: true   # private+GHAS無効だと不可。証跡は下の artifact で確保
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
         with:
           sarif_file: semgrep.sarif
       # 証跡: SARIF をダウンロード可能な成果物としても残す（private+GHAS無しでも証跡になる）
       - name: SAST結果を成果物として保存
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sast-semgrep-sarif
           path: semgrep.sarif
@@ -99,11 +99,11 @@ jobs:
     name: SCA + License - Trivy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       # 品質ゲート: CRITICAL/HIGH があれば失敗（マージブロック）
       - name: Trivy（脆弱性 + ライセンス・ゲート）
         continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
           scan-type: fs
           scanners: vuln,license,secret,misconfig
@@ -114,7 +114,7 @@ jobs:
       # --- 以下は証跡（顧客説明用の成果物）。スキャンは失敗させない ---
       - name: Trivy SARIF（Code Scanning用）
         if: always()
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -124,12 +124,12 @@ jobs:
       - name: Trivy SARIF を Code Scanning にアップロード
         if: always()
         continue-on-error: true   # private+GHAS無効だと不可。証跡は下の artifact で確保
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
         with:
           sarif_file: trivy.sarif
       - name: SBOM（CycloneDX）を生成
         if: always()
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
           scan-type: fs
           format: cyclonedx
@@ -137,7 +137,7 @@ jobs:
           exit-code: '0'
       - name: ライセンスレポートを生成
         if: always()
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
           scan-type: fs
           scanners: license
@@ -146,7 +146,7 @@ jobs:
           exit-code: '0'
       - name: SCA証跡（SBOM・ライセンス・SARIF）を成果物として保存
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sca-evidence
           path: |
@@ -161,7 +161,7 @@ jobs:
     name: SCA - pip-audit (Python)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       # ジョブレベル if で hashFiles() は使えないため、検出ステップ＋ステップ if で分岐する
       - name: requirements の有無を判定
         id: detect
@@ -175,7 +175,7 @@ jobs:
           fi
       - name: setup-python
         if: steps.detect.outputs.found == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.x'
       - name: pip-audit
@@ -198,7 +198,7 @@ jobs:
     name: SCA - OSV-Scanner
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       # 主要言語の lockfile を広くカバー（Python/Node/Go/Rust/Ruby/Java/PHP 等）。
       # ジョブレベル if で hashFiles() は使えないため、検出ステップ＋ステップ if で分岐する。
       - name: lockfile の有無を判定
@@ -218,7 +218,7 @@ jobs:
       - name: OSV-Scanner
         if: steps.detect.outputs.found == 'true'
         continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
-        uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         with:
           scan-args: |-
             --recursive
@@ -230,7 +230,7 @@ jobs:
     name: SCA - composer audit (PHP)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: composer.lock の有無を判定
         id: detect
         run: |
@@ -242,7 +242,7 @@ jobs:
           fi
       - name: PHP をセットアップ
         if: steps.detect.outputs.found == 'true'
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.3'
           tools: composer

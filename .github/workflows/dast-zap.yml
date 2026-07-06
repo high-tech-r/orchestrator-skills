@@ -29,7 +29,7 @@ jobs:
     name: ZAP Baseline Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: アプリを起動（docker-compose がある場合）
         if: ${{ github.event.inputs.target_url == '' }}
@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@66042c8e7e24680119199a017e5b0e8603bf4dae # v0.12.0
         with:
           target: ${{ github.event.inputs.target_url != '' && github.event.inputs.target_url || format('http://localhost:{0}', github.event.inputs.app_port || '8000') }}
           # 誤検知の抑制ルールは .zap/rules.tsv に記述する
