@@ -33,7 +33,12 @@
 4. **未実装フローには「準備中」を正直に表示する**
    - APIが未実装のままUIだけ作る場合、ユーザーに伝わるよう明示する（無効な値を送って失敗させない。例: `Authorization: Bearer null` を送らない）
 
-この原則は `implement`（生成時の禁止事項）と `consistency-check` Gate 2（嘘の検出）の両方で強制する。
+この原則は次の3層で強制する:
+1. `implement`（生成時の禁止事項・プロンプト）
+2. `.claude/hooks/honesty_check.py`（**書いた瞬間の機械検査**。Edit/Write/MultiEdit の PostToolUse で
+   無音 catch・握り潰し・`Bearer null` 等の構文的ホットスポットを検出し、Claude に修正/釈明を求める。
+   非致命。`.claude/settings.json` の `hooks` で発火）
+3. `consistency-check` Gate 2（設計⇔コード⇔テスト突合での嘘の検出）
 
 ## 実行ルール
 
