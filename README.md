@@ -130,7 +130,7 @@ cd orchestrator-skills
 pip install pre-commit && pre-commit install   # コミット前のシークレット検出
 ```
 
-### 2. リポジトリ設定の手動ステップ（セキュリティ層を使う場合。ツール・設定は作成時点で無料のものを選定）
+### 2. リポジトリ設定の手動ステップ（セキュリティ層を使う場合・無料ツールのみ）
 
 GitHub の画面でしか有効化できない設定です。**自分の GitHub リポジトリ**（このリポジトリのフォークでも、ファイルを導入した既存プロジェクトでも同じ）で、セキュリティ層（レベル2）を使うときに **最初に1回だけ** 実施します。
 
@@ -352,6 +352,8 @@ FastAPI 前提を脱し、`design` は HTTP 以外（ジョブ/イベント/CLI/
 
 AI駆動開発向けのレベル2セキュリティを無料ツールだけで組み込み済み。**言語非依存**で動作する。
 詳細とセットアップ手順は [`docs/security/LEVEL2_SECURITY.md`](docs/security/LEVEL2_SECURITY.md) を参照。
+
+> 本 README で「無料」とあるのは、各ツール・GitHub 機能を**フレームワーク作成時点の無料枠で選定**しているという意味です。各サービスの料金・無料枠は改定され得るため、導入時に各公式で確認してください。
 
 - pre-commit（Gitleaks）でコミット前にシークレットをブロック
 - GitHub Actions（`Security (Level 2)`）でPR時に TruffleHog / Semgrep / Trivy / OSV-Scanner を自動実行し、品質ゲートでマージを制御（いずれも言語自動判定。Python向けの pip-audit は任意で自動スキップ）
