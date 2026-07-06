@@ -50,12 +50,13 @@ jobs:
       pull-requests: write   # 起票 PR を作成するため
     steps:
       - name: リポジトリを取得（.claude/skills/audit を含む全体）
-        uses: actions/checkout@v4   # ★自分の repo では SHA ピン推奨（templates/dependabot.yml で追従更新）
+        # サプライチェーン対策で SHA ピン留め（元タグはコメント）。Dependabot(github-actions) が追従更新する。
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: audit スキルを実行し、結果を PR で起票
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@558b1d6cab4085c7753fe402c10bef0fbb92ac7a # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
