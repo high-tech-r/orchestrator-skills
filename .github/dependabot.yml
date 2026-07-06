@@ -16,5 +16,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # 新バージョン公開から数日待ってから更新PRを出す（cooldown）。
+    # 悪意あるリリースが公開直後に自動取り込みされ、yank される前にマージされる
+    # サプライチェーンリスクを下げる。SHA ピン留めと同じ「取り込みを急がない」思想。
+    cooldown:
+      default-days: 7
     labels:
       - "actions"
