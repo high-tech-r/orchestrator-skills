@@ -88,7 +88,8 @@ project_root/
 再現性担保のため**言語を問わず必須**とする。
 
 ### 5. Skill呼び出し順序
-0. `requirements` — 要件定義（対話型。ユーザー承認まで次に進まない）
+0. `requirements` — 要件定義（対話型。ユーザー承認まで次に進まない）。
+   任意で顧客への要件確認用スライド（Gamma取り込み用）を生成できる（スコープ合意用。書式は delivery が真実源）
 1. `orchestrate` — パイプライン開始・再開時に最初に呼ぶ
 2. `design` — 設計書生成
 3. `consistency-check` — Gate 1（設計レビュー）
