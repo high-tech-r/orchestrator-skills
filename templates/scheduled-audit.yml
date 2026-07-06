@@ -1,0 +1,79 @@
+# =============================================================================
+# 定期 audit（敵対的コードベース監査）— 対象プロジェクト向けテンプレート
+# =============================================================================
+# 位置づけ: フレームワークの `audit` スキルを **cron で自動実行**し、検出を
+#   docs/audit/ レポート＋バックログ TD として PR で「起票」する opt-in の仕組み。
+#   中央監視ではなく、**導入者が自分のリポジトリ・自分の API キーで回す self-hosted 型**。
+#   （テンプレートの思想は templates/dependabot.yml と同じ = additive / opt-in / self-hosted）
+#
+# ▼ これはテンプレートです（このフレームワーク repo では動作させていません）▼
+#   使うには、このファイルを **自分のリポジトリの .github/workflows/scheduled-audit.yml**
+#   にコピーしてください（templates/ に置いている間は動きません）。
+#
+# ---- 導入手順（opt-in。やらなければ何も起きない）----------------------------
+# 1. このファイルを自分の repo の .github/workflows/ にコピー。
+# 2. リポジトリ Secrets に **ANTHROPIC_API_KEY** を登録（Settings → Secrets and variables
+#    → Actions）。Bedrock / Vertex / Foundry を使う場合は claude-code-action のドキュメントに従う。
+# 3. 必要なら cron を調整（既定は四半期ごと。下の schedule 参照）。
+# 4. ラベル "audit" / "technical-debt" を事前に作成（PR に付けるため。不要なら prompt の指示から外す）。
+#
+# ---- コスト規律（重要）------------------------------------------------------
+# audit は多数のサブエージェントを消費し、**実行ごとに API トークン課金が発生**する。
+# CLAUDE.md の方針どおり「機能 3〜5 件ごと・リリース前・四半期のいずれか早い方」を自動化する
+# のはこの四半期トリガーだけ。頻度を上げるほどコストが増えるので、週次・月次にする場合は
+# コストを理解した上で。手動トリガー（workflow_dispatch）でも回せる。
+#
+# ---- 誠実性（このワークフローは修正しない）----------------------------------
+# audit は「起票 → 人間が優先度判断 → 別ブランチで修正」。このワークフローは
+# **ソースを変更せず**、docs/audit/ と docs/backlog.md に結果を書いた PR を出すだけ。
+# =============================================================================
+
+name: Scheduled Audit
+
+on:
+  schedule:
+    # 四半期ごと（1・4・7・10 月の 1 日 03:00 UTC）。cron は UTC。
+    # 月次にするなら "0 3 1 * *"、週次なら "0 3 * * 1" 等に変更。
+    - cron: "0 3 1 1,4,7,10 *"
+  workflow_dispatch: {}   # 手動実行も可（Actions タブから）
+
+# 同時実行を1本に制限（重い監査が重ならないように）
+concurrency:
+  group: scheduled-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # docs/audit・backlog を書いた作業ブランチを push するため
+      pull-requests: write   # 起票 PR を作成するため
+    steps:
+      - name: リポジトリを取得（.claude/skills/audit を含む全体）
+        # サプライチェーン対策で SHA ピン留め（元タグはコメント）。Dependabot(github-actions) が追従更新する。
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: audit スキルを実行し、結果を PR で起票
+        uses: anthropics/claude-code-action@558b1d6cab4085c7753fe402c10bef0fbb92ac7a # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            このリポジトリに対して `.claude/skills/audit/SKILL.md`（敵対的コードベース監査）を
+            実行してください。手順の要点:
+            - `.orchestrator/stack-profile.md` があれば読み、スタック固有の例を反映する。
+            - 観点ラブリック `.claude/skills/audit/lens-rubric.md` の L1〜L9 を各対象に1つずつ適用。
+            - 高価値レンズは専門サブエージェント（authz-idor-auditor / honesty-auditor /
+              contract-checker）を活用し、Step4 の敵対的再検証で反証を試みて確度をタグ付けする。
+            - **ソースコードは一切変更しないこと。** これは監査であって修正ではない。
+            - 確定した指摘を `docs/audit/` にレポート、`docs/backlog.md` に TD として採番登録し、
+              `.orchestrator/project_status.yaml` があれば反映する。各指摘に file:line・深刻度・対処方針。
+            - 上記の docs/ 変更を作業ブランチにコミットし、**PR を1本作成**する。タイトルは
+              「chore(audit): 定期監査 <日付>」。本文に高深刻度サマリーを載せる。ラベル
+              "audit","technical-debt" を付ける（無ければ付けない）。
+            - 高深刻度の指摘がゼロなら、その旨だけを本文に書いた PR（または空コミット）で報告する。
+          claude_args: |
+            --max-turns 40
+            --allowedTools Read,Grep,Glob,Bash,Edit,Write
+            # --model <必要なら固定。省略時はアクション既定。フレームワークはモデル非依存>

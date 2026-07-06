@@ -46,11 +46,14 @@ flowchart TD
     TC --> G2{"Gate 2<br>設計⇔コード⇔テスト突合"}
     G2 -- "FAIL（自動差し戻し）" --> I
     G2 -- PASS --> RG["テスト手順書生成<br>skill: review-guide"]
-    RG --> HR["人間レビュー（動作確認）"]
+    RG --> G3{"Gate 3: マージ前レビュー提案（任意）<br>/code-review（Tier連動・敵対的差分レビュー）"}
+    G3 --> HR["人間レビュー（動作確認）"]
     HR -- 次の機能へ --> D
 ```
 
 実装とテスト仕様書は**同じ設計書から並列に**作られ（テストファースト思想: テスト設計は実装コードを見ない）、Gate 2 で三者を突合します。Gate の差し戻しは自動で行われ、3回連続 FAIL したときだけ人間にエスカレーションされます。
+
+Gate 2 の後、`review-guide` が機能の Tier（リスク）を自動判定し、**Gate 3 として `/code-review`（マージ前の敵対的差分レビュー）を Tier に応じた深さで提案**します。これは強制ではなく助言で、実行するかは人間が決めます（Tier S/A は既定で提案、B 以下は差分の危険度に応じて提案）。加えて、実装中は誠実性フック（`.claude/hooks/honesty_check.py`）が「偽成功・握り潰し」等をコードを書いた瞬間に機械検出します。詳細は[オンデマンド／自動レイヤー](#オンデマンドスキルと自動レイヤー)。
 
 ### 人間（あなた）がやることは実質3つ
 
@@ -73,15 +76,28 @@ flowchart TD
 | 6. テストコード生成 | `implement` | `tests/` |
 | 7. **Gate 2**: 整合性チェック | `consistency-check` | `docs/consistency_report/F-XXX_gate2.md` |
 | 8. テスト手順書 | `review-guide` | `docs/review_map/F-XXX.md` |
+| 9. **Gate 3**: マージ前レビュー提案（任意） | `/code-review` | Tier連動の敵対的差分レビュー（提案。人間が実行可否を判断） |
 
-パイプライン外の**オンデマンドスキル**（必要なときに指示して単発実行）:
+### オンデマンドスキルと自動レイヤー
+
+**オンデマンドスキル**（パイプライン外。必要なときに指示して単発実行）:
 
 | Skill | 用途 | 実行タイミングの目安 |
 |---|---|---|
-| `audit` | 敵対的コードベース監査（機能単位ゲートの死角＝境界間・並行性・IDOR・偽成功バグを全域横断で反証探索） | 機能3〜5件ごと / リリース前 / 定期 |
+| `audit` | 敵対的コードベース監査（機能単位ゲートの死角＝境界間・並行性・IDOR・偽成功バグを全域横断で反証探索）。高価値レンズは専門サブエージェント（`.claude/agents/`）を活用 | 機能3〜5件ごと / リリース前 / 定期 |
 | `quality-report` | ステークホルダー向け品質レポート（テスト・バグ・ゲート通過状況） | 納品・報告時 |
 | `security-report` | ステークホルダー向けセキュリティ証跡レポート | 納品・報告時 |
-| `delivery` | ステークホルダー向けの説明資料一式を `docs/delivery/` に集約（上2つ＋設計サマリー＋[Gamma](https://gamma.app) 取り込み用スライドを内包。[詳細](#納品ドキュメントステークホルダーへの説明gamma対応)） | 納品時 |
+| `delivery` | ステークホルダー向けの説明資料一式を `docs/delivery/` に集約（上2つ＋設計サマリー＋[Gamma](https://gamma.app) 取り込み用スライド）。任意で共有Webページ（claude.ai Artifact）も生成可（[詳細](#納品ドキュメントステークホルダーへの説明gamma対応)） | 納品時 |
+
+**自動／任意レイヤー**（明示指示や条件で働く。すべて opt-in か助言的で、パイプラインをブロックしない）:
+
+| レイヤー | 何をするか | いつ |
+|---|---|---|
+| 誠実性フック（`.claude/hooks/honesty_check.py`） | 偽成功・無音握り潰し・`Bearer null` 等をコードを書いた瞬間に機械検出（非致命） | Edit/Write 時に自動（`.claude/settings.json` の hooks で発火） |
+| Gate 3（`/code-review`） | Tier連動の敵対的差分レビューを提案 | review-guide 後・マージ前（人間が実行可否を判断） |
+| Context7 MCP 照合 | 依存追加前にパッケージの実在性・最新APIを裏取り（slopsquatting対策） | `implement` で依存を足すとき（Context7 が使えないときは従来ルールにフォールバック） |
+| 専門サブエージェント（`.claude/agents/`） | `honesty-auditor` / `authz-idor-auditor` / `contract-checker` が監査の高価値レンズを担当 | `audit`・レビューの検証時 |
+| 定期 audit（`templates/scheduled-audit.yml`） | cron で audit を自動実行し結果を PR で起票（**opt-in・self-hosted・実行ごとに API 課金**） | 自分の repo にコピーして有効化した場合のみ（既定 四半期） |
 
 ## クイックスタート（一本道）
 
@@ -169,6 +185,21 @@ docs/security/LEVEL2_SECURITY.md                 # 手順書
 > を別途持ち、ワークフローの SHA ピン留めだけを追従更新します）。
 > `labels:` で指定するラベルは事前に Issues → Labels で作成するか、不要なら削除します。
 
+### C. 定期 audit の自動化（任意・opt-in）
+
+audit（敵対的監査）を cron で自動実行したい場合のみ、`templates/scheduled-audit.yml` を
+**自分のリポジトリの `.github/workflows/scheduled-audit.yml` にコピー**する。
+
+```
+templates/scheduled-audit.yml  →  .github/workflows/scheduled-audit.yml
+```
+
+- リポジトリ Secrets に **`ANTHROPIC_API_KEY`** を登録する（`Settings → Secrets and variables → Actions`）。
+- 既定は**四半期ごと**。頻度は cron で調整（週次・月次にするほど**実行ごとに API 課金**が増える）。
+- 中央監視ではなく、**あなたの repo・あなたの API キーで回る self-hosted 型**。作者は何も見ない。
+- audit は**修正しない**。結果を `docs/audit/` とバックログに書いた PR を出すだけ（起票 → あなたが優先度判断）。
+- 手動トリガー（Actions タブの workflow_dispatch）でも回せる。**入れなくても手動で `audit` スキルを呼べば十分**。
+
 ### 上書きせず「マージ」するファイル
 
 既存プロジェクトに同名ファイルがある場合、潰さず中身を合流させる。
@@ -212,7 +243,13 @@ docs/security/LEVEL2_SECURITY.md                 # 手順書
 orchestrator-skills/
 ├── CLAUDE.md                        # オーケストレーターのメインルール
 ├── .claude/
-│   ├── settings.json                # 権限制御（Content Exclusion / permissions.deny）
+│   ├── settings.json                # 権限制御（permissions.deny）＋ 誠実性フックの発火設定（hooks）
+│   ├── hooks/
+│   │   └── honesty_check.py         # 誠実性チェック（偽成功・握り潰しを書いた瞬間に検出）
+│   ├── agents/                      # 監査用の専門サブエージェント（audit が活用）
+│   │   ├── honesty-auditor.md       # L2/L5: 偽成功・握り潰し・嘘のインターフェース
+│   │   ├── authz-idor-auditor.md    # L1: 認可・マルチテナントIDOR
+│   │   └── contract-checker.md      # L3/L4: 境界契約・並行性
 │   └── skills/
 │       ├── _shared/
 │       │   └── test-quality-rules.md  # テスト品質ルールの共通真実源
@@ -239,6 +276,7 @@ orchestrator-skills/
 │   └── PULL_REQUEST_TEMPLATE.md     # AI利用チェック付きPRテンプレート
 ├── templates/
 │   ├── dependabot.yml               # 依存更新の設定テンプレ（.github/ にコピーして使う）
+│   ├── scheduled-audit.yml          # 定期 audit のワークフローテンプレ（opt-in・.github/workflows/ にコピー）
 │   └── stack-profiles/              # スタック別の起動/テスト/fake手順
 │       ├── _template.md             # プロファイルの契約（観点）
 │       ├── laravel.md / fastapi.md  # リファレンス例（要確認・権威ではない）
