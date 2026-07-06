@@ -127,6 +127,8 @@ project_root/
 生成物はリポジトリのセキュリティCI（`.github/workflows/security.yml`）で品質ゲートにかかる。
 コード・依存を生成する際は次を守る:
 - ハードコードされたシークレットを出力しない（Gitleaks/TruffleHogでブロックされる）
-- 実在性が確認できないパッケージを追加しない（slopsquatting対策。`implement` スキル参照）
+- 実在性が確認できないパッケージを追加しない（slopsquatting対策）。依存追加前に **Context7 MCP**
+  （`resolve-library-id` で実在性、`query-docs` で最新API）を照合する。解決不能なら追加しない。
+  Context7 が使えない環境では従来ルール（広く使われるもののみ＋コメントで注意喚起）にフォールバック。`implement` スキル参照
 - 機密ファイル（.env, *.pem, *.key 等）は `.claude/settings.json` の `permissions.deny` で読み取り禁止
 - 構成の全体像は `docs/security/LEVEL2_SECURITY.md`
