@@ -52,26 +52,33 @@ def _load_content(path):
 
 
 def check_python_silent_except(lines):
-    """Python: except 節の本体が pass / return None 等のみで、ログも raise も無い → 無音握り潰し。"""
+    """Python: except 節の本体が pass / return None 等のみで、ログも raise も無い → 無音握り潰し。
+    1行形式（`except X: pass`）と複数行形式の両方を検出する。"""
     findings = []
     for i, line in enumerate(lines):
-        m = re.match(r"^(\s*)except\b(.*):\s*(#.*)?$", line)
+        # 例外スペックにコロンは現れないため、最初の `:` が except ヘッダの区切り。
+        # コロン以降（group 3）にインライン本体が来ることがある（例: `except X: pass`）。
+        m = re.match(r"^(\s*)except\b([^:]*):(.*)$", line)
         if not m:
             continue
         indent = len(m.group(1))
         # bare except は無条件で誠実性の要注意
         bare = m.group(2).strip() == ""
-        # 本体（より深いインデントの連続行）を集める
-        body = []
-        for nxt in lines[i + 1:]:
-            if nxt.strip() == "" or nxt.lstrip().startswith("#"):
-                continue
-            cur_indent = len(nxt) - len(nxt.lstrip())
-            if cur_indent <= indent:
-                break
-            body.append(nxt.strip())
+        # インライン本体（コメントは除く）。あればそれを本体とし、無ければ後続行を集める。
+        inline = re.sub(r"#.*$", "", m.group(3)).strip()
+        if inline:
+            body = [inline]
+        else:
+            body = []
+            for nxt in lines[i + 1:]:
+                if nxt.strip() == "" or nxt.lstrip().startswith("#"):
+                    continue
+                cur_indent = len(nxt) - len(nxt.lstrip())
+                if cur_indent <= indent:
+                    break
+                body.append(nxt.strip())
         body_text = " ".join(body)
-        trivial = body and all(TRIVIAL_BODY.match(b) for b in body)
+        trivial = bool(body) and all(TRIVIAL_BODY.match(b) for b in body)
         handled = bool(HANDLED_MARKERS.search(body_text))
         if bare and not handled:
             findings.append((i + 1, "bare `except:` で例外を捕捉している（型を絞らず、後始末も不明瞭）"))
@@ -107,7 +114,9 @@ def check_brace_silent_catch(content, lines):
         trivial = re.fullmatch(
             r"(return\s*(null|false|nil|undefined)?\s*;?)?", stripped_oneline
         ) is not None
-        handled = bool(HANDLED_MARKERS.search(body))
+        # handled 判定はコメント除去後の実体（stripped）で行う。コメント内の "error"/"log" 等の
+        # 語で「後始末済み」と誤判定して空 catch を見逃さないため。
+        handled = bool(HANDLED_MARKERS.search(stripped))
         if (empty or trivial) and not handled:
             lineno = content.count("\n", 0, m.start()) + 1
             reason = "空の catch ブロック" if empty else "catch が return null/false のみ"
@@ -130,7 +139,16 @@ def main():
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
-        sys.exit(0)  # 入力が読めないときは黙って通す（フックで作業を止めない）
+        # 入力(stdin)を解釈できない = フック未更新／入力仕様変更／誤設定の疑い。
+        # 作業はブロックしない（exit 0）が、「静かな no-op 化」を避けるため必ず一言可視化する
+        # （fail-safe だが loud。通常の「検査不要」とは違い、これは“検査できなかった”事故）。
+        print(
+            "⚠ 誠実性チェック: フックへの入力(stdin)を解釈できず検査をスキップしました。"
+            "Claude Code のフック入力仕様が変わった可能性があります"
+            "（コードではなくフック側の問題／要更新）。作業はブロックしていません。",
+            file=sys.stderr,
+        )
+        sys.exit(0)
 
     if payload.get("tool_name") not in ("Edit", "Write", "MultiEdit"):
         sys.exit(0)
@@ -139,15 +157,25 @@ def main():
     if not path:
         sys.exit(0)
 
-    # 対象拡張子のみ。フック自身・markdown・docs 配下は除外
+    # 対象拡張子のみ（markdown 等の非コードは拡張子で自然に除外される）。
     lower = path.lower()
     if not any(lower.endswith(ext) for ext in CODE_EXTS):
         sys.exit(0)
-    if lower.endswith("honesty_check.py") or "/docs/" in lower:
+    # フック自身は検査対象外（検出パターン文字列 `Bearer null` 等で自己誤検出するため）。
+    # ※ かつて `/docs/` を一律除外していたが、src/docs/handler.py のような実コードまで
+    #   無検査にしてしまうため撤去した（ドキュメントは拡張子フィルタで既に除外される）。
+    if lower.endswith("honesty_check.py"):
         sys.exit(0)
 
     content = _load_content(path)
     if content is None:
+        # ここまで来た = 検査すべき対象コードだが読めない（削除・移動・権限など）。
+        # 作業はブロックしない（exit 0）が、検査できなかった事実は可視化する（loud）。
+        print(
+            f"⚠ 誠実性チェック: {path} を読み取れず検査をスキップしました"
+            "（削除・移動・権限など）。作業はブロックしていません。",
+            file=sys.stderr,
+        )
         sys.exit(0)
     lines = content.splitlines()
 
