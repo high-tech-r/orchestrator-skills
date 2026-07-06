@@ -38,6 +38,29 @@
 - **Tier S, A**: AIレビュー後に人間が最終承認する（requires_human_approval: true）
 - **Tier B, C, D**: AIレビューのみで承認可（ai_autonomous: true）
 
+## Gate 3（マージ前 /code-review）の effort 判定
+
+Tierを判定したら、続けて **Gate 3 の推奨 effort** を算出し、手順書に明記する。
+判定と実行を1本につなぐため、review-guide の出力が「そのまま /code-review の実行指示」になる。
+
+1. 対象Tierの `code_review.effort` を基準値とする（S=max / A=high / B=medium / C=low_or_skip / D=skip）
+2. **変更差分（diff）を読み**、`code_review_risk_signals` に照合する
+   - catch/例外ハンドリングの変更、成功/失敗判定ロジック、サービス間契約（URL・レスポンス形状）、
+     認証・認可・所有権スコープ、成功メッセージ経路、不可逆な外向き処理（通知・課金・削除）
+   - **1つでも該当したら effort を1段引き上げる**（`code_review_effort_ladder`: low→medium→high→max で頭打ち）
+   - 該当した risk_signal を手順書に列挙し、引き上げの根拠を残す
+3. `skip_signals`「のみ」の差分（docs のみ / テストのみ / コメント・整形のみ）は **Gate 3 をスキップ**（effort: skip）
+4. 提案の判定（Gate 3 は「提案」であって強制ではない。実行するかは常にユーザーが決める）:
+   - **Tier S / A**: `propose_by_default: true` → フレームワークがマージ前に `/code-review` の実行を**提案**する（強く推奨）
+   - **Tier B / C / D**: `propose_by_default: false` → 既定では提案しない。ただし risk_signals 該当で
+     effort が上がった場合は提案する
+5. 最終 effort が `skip` の場合を除き、手順書 Part 5 に「提案する /code-review コマンド」を明記し、
+   ユーザーに実行するかを尋ねる形にする
+
+> effort 語彙は `/code-review` の実効値（low / medium / high / max）に合わせる。
+> `ultra` はクラウド多エージェント・課金・ユーザー起動専用のため、この自動 Gate では扱わない
+> （最上位でも max 止まり。必要なら人間が別途 `/code-review ultra` を起動する）。
+
 ## 出力ファイル
 `docs/review_map/F-XXX.md`
 
@@ -46,6 +69,7 @@
 
 ## 基本情報
 - Tier: B
+- Gate 3 推奨 /code-review effort: medium（基準 medium。risk_signals 非該当）
 - 推定所要時間: XX分
 - 前提条件: Docker Desktop がインストールされていること
 - 作成日: YYYY-MM-DD
@@ -204,11 +228,49 @@
 
 ---
 
-## Part 5: 最終チェック
+## Part 5: Gate 3 — マージ前 /code-review（敵対的差分レビュー）※提案
+
+> 設計⇔コード⇔テストの縦整合（Gate 2）とは別に、**変更差分そのものの正しさ**を
+> 敵対的に見る層。偽成功・無音握り潰し・サービス間契約の不整合など、Gate 2 では
+> 検出できない潜在バグを狙う。
+>
+> **これは強制ゲートではない。** フレームワークが「このタイミングで /code-review を
+> かけますか？」と**提案**し、実行するかはユーザーが決める（CI非連携・非ブロッキング）。
+
+### 判定結果
+- 基準 effort（Tier B）: `medium`
+- 検出した risk_signals:
+  - （例）「成功/失敗ステータスの判定ロジック」に該当 → effort を1段引き上げ
+- **最終 effort: `high`**（risk_signals 該当により medium → high）
+- skip 判定: 非該当（docs/テスト/整形のみの差分ではない）
+
+### 提案（実行するかはユーザーが決める）
+- Tier S / A → フレームワークがマージ前に実行を**提案**（強く推奨）
+- Tier B 以下 → 既定では提案しないが、risk_signals 該当で effort が上がった場合は提案
+- 最終 effort が `skip` の場合、この Part は「スキップ（理由: 〜）」と記載し提案しない
+
+「以下を実行してマージ前レビューをかけますか？」とユーザーに尋ねる：
+```
+/code-review high
+```
+
+### 実行した場合の記録
+1. 検出された指摘を1件ずつ確認する
+2. 指摘への対応を記録する：
+   - [ ] 各指摘について「修正する / 誤検出として却下（理由付き） / TDとして起票」を判断した
+   - [ ] 誠実性ホットスポット（偽成功・無音 catch・認証握り潰し）の指摘は必ず修正した
+3. マージ可否は指摘を踏まえて**人間が最終判断**する（非ブロッキング）
+
+**Gate 3 判定:** □ 未実施（提案のみ）  □ 指摘なし／対応済み  □ 要修正（差し戻し）  □ スキップ（理由: ）
+
+---
+
+## Part 6: 最終チェック
 
 - [ ] Part 2 の全テストが PASS
 - [ ] Part 3 の全チェック項目が OK
 - [ ] Part 4 の自動テストが全て PASSED
+- [ ] Part 5（Gate 3 / code-review）: 提案を確認済み。実行した場合は指摘が対応済み（未実施・スキップも可、理由が明確なこと）
 - [ ] 設計書（docs/design/F-XXX.md）の受入条件が全て満たされている
 
 ### 総合判定
