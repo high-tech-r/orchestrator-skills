@@ -27,6 +27,13 @@ venv/
 # --- Claude Code のローカル上書き設定（個人設定はコミットしない） ---
 .claude/settings.local.json
 
+# --- 権限ポスチャの観測レシート（コマンド列を含むためコミット禁止） ---
+# 既定の保存先は repo 外（~/.claude/receipts）だが、L1_RECEIPTS_DIR を repo 内に
+# 向けた場合に備えて無視する。秘密は redact 済みだが念のため常に除外する。
+receipts/
+**/l1-shadow.jsonl
+**/l1-decisions.jsonl
+
 # --- WSL/Windows 由来のゴミ（Zone.Identifier 代替データストリーム） ---
 *:Zone.Identifier
 
