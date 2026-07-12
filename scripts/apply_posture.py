@@ -112,8 +112,7 @@ def apply(proj):
     for f in HOOK_FILES:
         src, dst = os.path.join(FW, ".claude", "hooks", f), os.path.join(hooks_dir, f)
         before = open(dst, encoding="utf-8").read() if os.path.exists(dst) else None
-        shutil.copy2(src, dst)
-        os.chmod(dst, 0o755)
+        shutil.copy2(src, dst)  # copy2 は元ファイルのモードを保持（chmod 不要: フックは python3 で起動される）
         state = "新規" if before is None else ("更新" if before != open(dst, encoding="utf-8").read() else "同一")
         log.append(f"  hook {f}: {state}")
 
@@ -121,7 +120,6 @@ def apply(proj):
     hsrc, hdst = os.path.join(FW, ".claude", "hooks", "honesty_check.py"), os.path.join(hooks_dir, "honesty_check.py")
     if not os.path.exists(hdst):
         shutil.copy2(hsrc, hdst)
-        os.chmod(hdst, 0o755)
         log.append("  hook honesty_check.py: 新規")
     elif open(hdst, encoding="utf-8").read() != open(hsrc, encoding="utf-8").read():
         log.append("  hook honesty_check.py: 既存を保持（フレームワーク版と差分あり。必要なら手動更新）")
@@ -133,7 +131,6 @@ def apply(proj):
     sdst = os.path.join(proj, "scripts", "analyze_l1.py")
     sb = open(sdst, encoding="utf-8").read() if os.path.exists(sdst) else None
     shutil.copy2(os.path.join(FW, "scripts", "analyze_l1.py"), sdst)
-    os.chmod(sdst, 0o755)
     log.append(f"  scripts/analyze_l1.py: {'新規' if sb is None else ('更新' if sb != open(sdst, encoding='utf-8').read() else '同一')}")
 
     # 4. 旧 auto_approve.py（permission_gate.py に置換済み）
