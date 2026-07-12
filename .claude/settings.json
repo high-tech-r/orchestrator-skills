@@ -11,11 +11,63 @@
       "Read(**/id_ed25519)",
       "Read(~/.ssh/**)",
       "Read(**/secrets/**)",
-      "Read(**/credentials*.json)"
+      "Read(**/credentials*.json)",
+      "Write(./.env)",
+      "Write(./.env.*)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Write(.claude/settings.json)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/hooks/**)",
+      "Edit(.claude/hooks/**)",
+      "Write(.git/hooks/**)",
+      "Edit(.git/hooks/**)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(sudo *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | bash)",
+      "Bash(wget * | sh)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git rebase *)"
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/deny_guard.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/permission_gate.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/l1_shadow_log.py\""
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/l1_shadow_log.py\""
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [

@@ -154,3 +154,30 @@ project_root/
   デフォルトブランチにいるときは、まずブランチを切ってから作業する。
 - コミット・push・PR 作成は、ユーザーが依頼したとき、または合意済みの範囲内のときだけ行う（勝手にコミットしない）。
 - 合意した境界は `feedback_history` に記録し、以降その前提で動く。変えたくなったら再合意する。
+
+### 9. 権限ポスチャ（最初にユーザーと合意する）
+このフレームワークは多くの人が使う。リスクを受容して全許可したい人も、情報漏洩を防ぎたい企業もいる。
+**どこまで AI に自動承認を委ねるかは人・案件で異なるため、最初の作業に入る前にユーザーとポスチャを合意し、
+その範囲を超えない。** ユーザーからの指示が無ければ、**前回合意した（永続化された）ポスチャを引き継ぐ**。
+永続値が無ければ最も保守的な `conservative` を既定とする（Rule 8 と同じ「一度合意し、記録し、超えない、
+変えたければ再合意する」型）。
+
+- 選べるポスチャ（**deny フロアは全ポスチャで常時有効**＝これが permissive を責任もって提供できる前提）:
+  - **conservative**（企業・情報漏洩防止向け／既定）: 自動承認しない。deny フロア＋観測ログのみ。すべて人が承認する。
+    導入しただけで素の Claude Code より安全（危険操作を拒否）になり、**予期せぬ自動許可は一切起きない**。
+  - **balanced**: 可逆・ローカル・読取専用の操作（`policy.classify()=="auto"`）のみ自動承認。それ以外は従来どおり確認する。
+  - **permissive**（リスク受容・使い捨てワークツリー向け）: deny フロアに触れない操作をすべて自動承認。
+    人が確認したはずの操作はレシート（`would_have_asked`）に記録する。
+- ポスチャは `.orchestrator/permission_posture.json` に永続化し、PreToolUse フック（`permission_gate.py`）が
+  毎回読む。読めない・壊れている・未知値のときは最も安全な `conservative` にフォールバックし、その旨を
+  **必ず可視化する**（loud。`honesty_check.py` と同じ「無音で劣化させない」原則）。
+- **deny フロア（`.claude/hooks/policy.py` + `deny_guard.py`）はポスチャに関わらず常時有効**: 不可逆・外向き・
+  自己権限昇格（`rm -rf` / force push / sudo / `.env` 書込 / `curl|sh` / 特権定義ファイル `.claude/settings.json`・
+  `.claude/hooks/`・`.git/hooks/` への書込）は permissive でも拒否する（skills/agents 等の振る舞い定義は対象外）。
+  独立フック（allow を一切出さない）として残すことで、分類ロジックにバグが出てもフロアは破れない
+  （`deny` は `allow` に勝つ／宣言的 `permissions.deny` は前方一致 glob で弱いので regex フロアの代替にはならない）。
+- 合意したポスチャは `feedback_history` に記録し（監査証跡）、以降その前提で動く。**変えたくなったら再合意する**。
+- 観測レシート（`~/.claude/receipts/*/l1-shadow.jsonl`）はコマンド列を含むため**コミットしない**（`.gitignore`）。
+  秘密は書き込み前に `policy.redact()` でマスクする。溜まったレシートは `scripts/analyze_l1.py` で
+  「毎回 yes している可逆コマンド」を allow-list 候補として抽出できる（貼る前に人が精査）。詳細は
+  `docs/security/PERMISSION_POSTURE.md`。

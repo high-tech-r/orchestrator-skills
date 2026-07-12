@@ -162,6 +162,25 @@ docs/
 変更した `dependabot.yml` 等の差分を要約してユーザーに伝える
 （「Python向けに pip エコシステムを有効化しました」等）。
 
+### 4-5. 権限ポスチャの合意（CLAUDE.md Rule 9・最初の作業前に）
+
+「どこまで AI に自動承認を委ねるか」をユーザーと合意し、`.orchestrator/permission_posture.json` に
+永続化する。**合意するまで既定は最も保守的な `conservative`**（自動承認ゼロ＋deny フロアのみ）。
+
+1. `.orchestrator/permission_posture.json` が既にあれば、その posture を尊重する（＝前回の引き継ぎ）。
+2. 無ければ（初回）、3ポスチャを提示して選んでもらう。**`conservative` を推奨**として示す:
+   - **conservative**（既定・企業/情報漏洩防止向け）: 自動承認しない。全部人が承認。導入しただけで
+     危険操作は拒否され、予期せぬ自動許可は起きない。
+   - **balanced**: 可逆・ローカル・読取専用だけ自動承認。他は確認。
+   - **permissive**（リスク受容・使い捨てワークツリー向け）: フロア以外を全自動承認（`would_have_asked` を記録）。
+   - どのポスチャでも **deny フロア（`rm -rf`・force push・sudo・`.env`/`.claude` 特権ファイル書込 等）は常時拒否**。
+3. 選ばれた値で `.orchestrator/permission_posture.json` を `{"posture":"<選択>"}` として作成する。
+4. 合意内容＋日付を `project_status.yaml` の `feedback_history` に記録する（監査証跡・変更時は再合意）。
+5. 詳細は `docs/security/PERMISSION_POSTURE.md` を案内する。
+
+> 注: フックの配線変更は settings.json の再読込（多くはセッション再起動）で反映される。ポスチャ値の
+> 変更（JSON 書き換え）は次のツール呼び出しから即反映される。
+
 ### 5. パイプライン実行
 
 #### Phase 0: 要件定義（対話型）
@@ -190,5 +209,9 @@ docs/
 
 1. `.orchestrator/project_status.yaml` を読む
 2. current.feature_id と current.phase を確認
-3. 未解決のイシューがあれば報告
-4. 前回の続きから実行再開
+3. `.orchestrator/permission_posture.json` を読み、**現在の権限ポスチャを毎回明示する**（loud・
+   引き継ぎを不可視にしない）。例:「現在の権限ポスチャ: balanced。変更する場合は指示してください」。
+   ファイルが無ければ `conservative`（既定）として扱い、初回は 4-5 に沿って合意する。
+   ユーザーから指示が無ければ、そのポスチャのまま続行する（CLAUDE.md Rule 9）。
+4. 未解決のイシューがあれば報告
+5. 前回の続きから実行再開

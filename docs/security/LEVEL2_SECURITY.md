@@ -15,6 +15,7 @@
 | 5 | SAST（AI特化） | Semgrep AI Security / Shadow AI（無料パック） | `security.yml` | ✅ |
 | 6 | ライセンス | Trivy（license スキャナ） | `security.yml` | ✅ |
 | 7 | Content Exclusion | Claude Code `permissions.deny` | `.claude/settings.json`, `.gitignore` | ✅ |
+| 7b | エージェント権限（自動承認の姿勢 ＋ 常時 deny フロア） | 権限ポスチャ用フック（`policy`/`deny_guard`/`permission_gate`/`l1_shadow_log`） | `.claude/hooks/`, [`PERMISSION_POSTURE.md`](PERMISSION_POSTURE.md) | ✅（フロア） |
 | 8 | DAST | OWASP ZAP Baseline | `dast-zap.yml` | 警告 |
 | 9 | LLMゲートウェイ | （レベル3のため対象外） | — | — |
 
@@ -140,6 +141,12 @@ npm/PyPI/Go/Maven等10+エコシステム対応）。CIの OSV-Scanner は既知
 ### 7. Content Exclusion の注意
 `.claude/settings.json` の `permissions.deny` は機密ファイルの読み取りを確実に止める。
 `.claudeignore` は Read ツールを防げないバグ報告があるため、`permissions.deny` を正とする。
+
+### 7b. 権限ポスチャ（エージェントの自動承認 ＋ 常時 deny フロア）
+「どこまで AI に自動承認を委ねるか」をユーザーが選べる仕組み（`conservative`/`balanced`/`permissive`）。
+どのポスチャでも**不可逆・外向き・自己権限昇格を拒否する deny フロアは常時有効**（`permissions.deny` の
+宣言的ルール＋ `deny_guard.py` の regex フロアの二層）。既定 `conservative` は自動承認ゼロで、
+入れるだけで素の Claude Code より安全。詳細は [`PERMISSION_POSTURE.md`](PERMISSION_POSTURE.md)。
 
 ### 8. DAST の注意
 `dast-zap.yml` は起動済みアプリが必要なため、手動実行（workflow_dispatch）または
