@@ -102,7 +102,18 @@ Bash(git push *)   Bash(git reset --hard *)   Bash(git rebase *)
   握り潰す（セッションを止めない）。誠実性ルールが対象とする「業務ロジックの偽成功」とは層が異なる。
 - **フックの配線変更は settings.json 再読込（多くはセッション再起動）で反映**される。
 
+## 導入・検証ツール
+
+- **既存プロジェクトへの導入**: `python3 scripts/apply_posture.py /path/to/your-project`
+  （このフレームワークの checkout から実行）。フック配置・settings.json のマージ・posture 初期値の
+  作成・レシートの .gitignore 追記までを**冪等**に行う。マージは温存優先:
+  `permissions.allow` と導入者の独自フック配線は消さず、置き換えた配線は必ず報告する（loud）。
+  コミットはしないので、実行後に diff を確認してからコミットする。
+- **検証**: `python3 scripts/verify_permission_hooks.py`（保守者向け）。合成 PreToolUse JSON で
+  決定表・フォールバック・redact・導入スクリプトの温存/冪等性まで自動検証する（全PASSで exit 0）。
+
 ## 関連
 - CLAUDE.md **Rule 9**（合意・引き継ぎのルール）／ **Rule 8**（Git 役割分担・同じ型）
 - `docs/security/LEVEL2_SECURITY.md`（セキュリティ全体像）
 - 実装: `.claude/hooks/policy.py`・`deny_guard.py`・`permission_gate.py`・`l1_shadow_log.py`・`scripts/analyze_l1.py`
+- ツール: `scripts/apply_posture.py`（既存PJ導入）・`scripts/verify_permission_hooks.py`（検証）
