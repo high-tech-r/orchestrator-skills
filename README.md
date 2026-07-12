@@ -163,7 +163,13 @@ claude
 
 > **言語・フレームワークは任意**です（Python / Node.js / Go / Java など）。最初から決め打ちで指定しても、Claude Code に提案させても構いません。同梱のセキュリティCIも言語非依存で、**利用者が言語別の設定をする必要はありません**（ツールが言語・lockfile を自動判定し、`dependabot.yml` 等の言語別調整も `orchestrate` が初期化時に自動で行う）（[詳細](docs/security/LEVEL2_SECURITY.md#言語非依存について重要)）。
 
-> **最初に「git をどこまで任せるか」を決めておくと安心です。** Claude Code が **コミットまで／ブランチ push＋PR 作成まで／マージまで** のどこまで行うかを、開始時に合わせておくと、勝手なマージや認識のズレを防げます（未指定なら PR 作成で止めて提案するのが既定）。詳細は `CLAUDE.md`「Git の役割分担」。
+> **最初に「どう一緒に進めるか」を1回だけ合意します（作業合意インタビュー）。** 初期化時に Claude Code が次を確認し、`.orchestrator/working-agreement.md` に記録します（以降は引き継ぎ、変えたいときだけ再合意）:
+> - **確認の粒度（権限ポスチャ）**: conservative（既定・全部人が承認）／balanced／permissive
+> - **git の役割**: コミットまで／ブランチ push＋PR 作成まで（既定）／マージまで
+> - **ブランチ戦略**: 機能別（既定・`feat/F-XXX-…`）／まとめ／単一／main直（非推奨）
+> - **その他**: コミット言語・レビュー深度・触ってほしくない領域 など自由に
+>
+> 「おまかせ」なら既定で進めます。詳細は `CLAUDE.md`（Rule 8/9）と [`docs/security/PERMISSION_POSTURE.md`](docs/security/PERMISSION_POSTURE.md)。
 
 ## 既存プロジェクトに組み込む
 
@@ -334,6 +340,7 @@ orchestrator-skills/
 ```
 ├── .orchestrator/
 │   ├── project_status.yaml         # 状態管理（再開地点）
+│   ├── working-agreement.md        # 作業合意（git役割・ブランチ戦略・その他。初期化で合意し引き継ぐ）
 │   └── permission_posture.json     # 選択した権限ポスチャ（引き継がれる。既定 conservative）
 ├── docs/
 │   ├── backlog.md             # バックログ
