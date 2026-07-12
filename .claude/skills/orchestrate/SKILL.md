@@ -162,21 +162,60 @@ docs/
 変更した `dependabot.yml` 等の差分を要約してユーザーに伝える
 （「Python向けに pip エコシステムを有効化しました」等）。
 
-### 4-5. 権限ポスチャの合意（CLAUDE.md Rule 9・最初の作業前に）
+### 4-5. 作業合意インタビュー（最初の作業前に・CLAUDE.md Rule 8/9）
 
-「どこまで AI に自動承認を委ねるか」をユーザーと合意し、`.orchestrator/permission_posture.json` に
-永続化する。**合意するまで既定は最も保守的な `conservative`**（自動承認ゼロ＋deny フロアのみ）。
+**「どう一緒に進めるか」を最初に1回まとめて合意する**。Rule 8（git 役割）・Rule 9（権限ポスチャ）・
+ブランチ戦略・その他の取り決めを、初期化時に**一度のインタビュー**で決める。すべて共通の型＝
+「一度合意し、記録し、その範囲を超えない。指示が無ければ**前回の合意を引き継ぐ**。変えたければ再合意」。
 
-1. `.orchestrator/permission_posture.json` が既にあれば、その posture を尊重する（＝前回の引き継ぎ）。
-2. 無ければ（初回）、3ポスチャを提示して選んでもらう。**`conservative` を推奨**として示す:
-   - **conservative**（既定・企業/情報漏洩防止向け）: 自動承認しない。全部人が承認。導入しただけで
-     危険操作は拒否され、予期せぬ自動許可は起きない。
-   - **balanced**: 可逆・ローカル・読取専用だけ自動承認。他は確認。
-   - **permissive**（リスク受容・使い捨てワークツリー向け）: フロア以外を全自動承認（`would_have_asked` を記録）。
-   - どのポスチャでも **deny フロア（`rm -rf`・force push・sudo・`.env`/`.claude` 特権ファイル書込 等）は常時拒否**。
-3. 選ばれた値で `.orchestrator/permission_posture.json` を `{"posture":"<選択>"}` として作成する。
-4. 合意内容＋日付を `project_status.yaml` の `feedback_history` に記録する（監査証跡・変更時は再合意）。
-5. 詳細は `docs/security/PERMISSION_POSTURE.md` を案内する。
+**まず既存の合意を確認**: `.orchestrator/working-agreement.md` があれば読み、その内容を尊重する
+（＝引き継ぎ。改めて全部聞き直さない）。無ければ（初回）、以下 ①〜④ を聞いて合意する。
+各項目は**推奨（既定）を先に示す**。ユーザーが「おまかせ」なら既定を採用する。
+
+#### ① 確認の粒度（権限ポスチャ）— Rule 9
+`.orchestrator/permission_posture.json` に永続化（**機械可読の正**。フックが毎回読む）。既定 `conservative`。
+- **conservative**（既定・企業/情報漏洩防止向け）: 自動承認しない。全部人が承認。導入しただけで
+  危険操作は拒否され、予期せぬ自動許可は起きない。
+- **balanced**: 可逆・ローカル・読取専用だけ自動承認。他は確認。
+- **permissive**（リスク受容・使い捨てワークツリー向け）: フロア以外を全自動承認（`would_have_asked` を記録）。
+- どのポスチャでも **deny フロア（`rm -rf`・force push・sudo・`.env`/`.claude` 特権ファイル書込 等）は常時拒否**。
+- 選択値で `permission_posture.json` を `{"posture":"<選択>"}` として作成。詳細は `docs/security/PERMISSION_POSTURE.md`。
+
+#### ② git の役割 — Rule 8
+どこまで AI が git を操作するか。既定は **(b) PR 作成まで**。
+- (a) コミットまで（push は人）／ **(b) ブランチ push ＋ PR 作成まで（既定）**／ (c) マージまで自走。
+- main への直 push・マージ・force push は明示合意が無い限りしない（提案に留める）。
+
+#### ③ ブランチ戦略
+既定は **機能別**（パイプラインの「1機能ずつ」と一致し、PR も機能単位でレビューしやすい）。
+- **機能別（既定）**: バックログ1機能=1ブランチ（`feat/F-XXX-<短い名前>`）。
+- **フェーズ/まとめ**: 関連する複数機能を1ブランチにまとめる（小規模・関連機能一括）。
+- **単一作業ブランチ**: `work` など1本で回す（超小規模・個人実験）。
+- **main 直（非推奨）**: 使い捨て・単独実験のみ。Rule 8 の不可逆操作の注意が効く。
+
+#### ④ その他の取り決め（自由・"chat about this"）
+上記で決めきれない作業上の約束を自由に聞く。例: コミットメッセージの言語、レビュー深度の既定、
+デプロイ/リリースの運用、通知の希望、触ってほしくない領域 など。無ければ「特になし」でよい。
+
+#### 合意の記録（①以外はここに集約）
+`.orchestrator/working-agreement.md` を**人間可読の真実源**として作成/更新する:
+
+```markdown
+# 作業合意（Working Agreement）
+- 合意日: YYYY-MM-DD
+- 権限ポスチャ: conservative | balanced | permissive
+  （機械可読の正は .orchestrator/permission_posture.json。ここは人間向けの写し）
+- git の役割: (a) コミットまで | (b) PR作成まで | (c) マージまで自走
+- ブランチ戦略: 機能別(feat/F-XXX-…) | フェーズ/まとめ | 単一作業ブランチ | main直(非推奨)
+- その他の取り決め:
+  - （自由記述。無ければ「特になし」）
+
+## 変更履歴
+- YYYY-MM-DD: 初回合意（ポスチャ=… / git=… / ブランチ=…）
+```
+
+- 合意（と以後の変更）は `project_status.yaml` の `feedback_history` にも記録する（監査証跡）。
+- 二重帳簿にしない: ポスチャの**正は JSON**、working-agreement.md はその写し。食い違ったら JSON を正とする。
 
 > 注: フックの配線変更は settings.json の再読込（多くはセッション再起動）で反映される。ポスチャ値の
 > 変更（JSON 書き換え）は次のツール呼び出しから即反映される。
@@ -209,9 +248,10 @@ docs/
 
 1. `.orchestrator/project_status.yaml` を読む
 2. current.feature_id と current.phase を確認
-3. `.orchestrator/permission_posture.json` を読み、**現在の権限ポスチャを毎回明示する**（loud・
-   引き継ぎを不可視にしない）。例:「現在の権限ポスチャ: balanced。変更する場合は指示してください」。
-   ファイルが無ければ `conservative`（既定）として扱い、初回は 4-5 に沿って合意する。
-   ユーザーから指示が無ければ、そのポスチャのまま続行する（CLAUDE.md Rule 9）。
+3. `.orchestrator/working-agreement.md` と `permission_posture.json` を読み、**現在の作業合意を毎回明示する**
+   （loud・引き継ぎを不可視にしない）。例:「現在の合意 — 権限ポスチャ: balanced／git: PR作成まで／
+   ブランチ: 機能別。変更する場合は指示してください」。どちらのファイルも無ければ既定
+   （ポスチャ=conservative／git=PR作成まで／ブランチ=機能別）として扱い、初回は 4-5 に沿って合意する。
+   ユーザーから指示が無ければ、その合意のまま続行する（CLAUDE.md Rule 8/9）。
 4. 未解決のイシューがあれば報告
 5. 前回の続きから実行再開
