@@ -83,7 +83,7 @@ jobs:
       - name: SARIF を Code Scanning にアップロード
         if: always()
         continue-on-error: true   # private+GHAS無効だと不可。証跡は下の artifact で確保
-        uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v3
         with:
           sarif_file: semgrep.sarif
       # 証跡: SARIF をダウンロード可能な成果物としても残す（private+GHAS無しでも証跡になる）
@@ -124,7 +124,7 @@ jobs:
       - name: Trivy SARIF を Code Scanning にアップロード
         if: always()
         continue-on-error: true   # private+GHAS無効だと不可。証跡は下の artifact で確保
-        uses: github/codeql-action/upload-sarif@411c4c9a36b3fca4d674f06b6396b2c6d23522c6 # v3
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v3
         with:
           sarif_file: trivy.sarif
       - name: SBOM（CycloneDX）を生成
