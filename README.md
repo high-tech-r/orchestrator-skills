@@ -20,6 +20,8 @@
 - **API従量課金なし** — Claude Code（Pro/Maxプラン）の範囲内で完結（任意の定期auditのCI自動化だけは API キー利用＝従量課金）
 - **品質ゲート内蔵** — Gate 1（設計レビュー）/ Gate 2（設計⇔コード⇔テスト突合）で自動差し戻し
 - **セッション再開** — 中断しても `project_status.yaml` から続きを再開
+- **バックログは HTML 1ファイル** — `docs/backlog.html` をブラウザで開くだけで、未完了/完了・優先度・Tier・種別の絞り込み・検索・進捗が使える（UX はテンプレートで担保。更新は `scripts/backlog.py`）
+- **auto mode 前提の自走と停止点** — Claude Code の auto mode を正とし、Tier（S/A/B/C/D）が「人が立ち止まる地点」を決める（S: 設計承認＋マージ前／A: マージ前／B 以下: 後追いレビュー・滞留上限つき）
 - **ステークホルダー向け説明資料も自動生成** — 品質レポート・セキュリティ証跡・設計サマリー・プレゼン用スライド（[Gamma](https://gamma.app) 取り込み → PPT/PDF 化対応）を納品・報告・合意形成のときに一括生成（[詳細](#納品ドキュメントステークホルダーへの説明gamma対応)）
 - **レベル2セキュリティ同梱（無料ツールのみ）** — シークレット/SCA/SAST/ライセンス/DASTをCIの品質ゲートとして接続（[詳細](#セキュリティレベル2--無料ツールのみ)）
 
@@ -80,7 +82,7 @@ Gate 2 の後、`review-guide` が機能の Tier（リスク）を自動判定�
 
 | 工程 | Skill | 成果物 |
 |---|---|---|
-| 0. 要件定義（対話型） | `requirements` | `docs/requirements.md` / `docs/backlog.md`（任意で顧客確認用スライド `docs/requirements_presentation_*.md`） |
+| 0. 要件定義（対話型） | `requirements` | `docs/requirements.md` / `docs/backlog.html`（HTML のみ。`scripts/backlog.py` で更新。任意で顧客確認用スライド `docs/requirements_presentation_*.md`） |
 | 1. パイプライン制御・再開 | `orchestrate` | `.orchestrator/project_status.yaml` |
 | 2. 設計 | `design` | `docs/design/F-XXX.md` |
 | 3. **Gate 1**: 設計レビュー | `consistency-check` | `docs/consistency_report/F-XXX_gate1.md` |
@@ -164,7 +166,7 @@ claude
 > **言語・フレームワークは任意**です（Python / Node.js / Go / Java など）。最初から決め打ちで指定しても、Claude Code に提案させても構いません。同梱のセキュリティCIも言語非依存で、**利用者が言語別の設定をする必要はありません**（ツールが言語・lockfile を自動判定し、`dependabot.yml` 等の言語別調整も `orchestrate` が初期化時に自動で行う）（[詳細](docs/security/LEVEL2_SECURITY.md#言語非依存について重要)）。
 
 > **最初に「どう一緒に進めるか」を1回だけ合意します（作業合意インタビュー）。** 初期化時に Claude Code が次を確認し、`.orchestrator/working-agreement.md` に記録します（以降は引き継ぎ、変えたいときだけ再合意）:
-> - **確認の粒度（権限ポスチャ）**: conservative（既定・全部人が承認）／balanced／permissive
+> - **確認の粒度（権限ポスチャ）**: auto（既定・Claude Code の auto mode に任せる）／conservative（全部人が承認）／balanced／permissive
 > - **git の役割**: コミットまで／ブランチ push＋PR 作成まで（既定）／マージまで
 > - **ブランチ戦略**: 機能別（既定・`feat/F-XXX-…`）／まとめ／単一／main直（非推奨）
 > - **その他**: コミット言語・レビュー深度・触ってほしくない領域 など自由に
@@ -185,6 +187,8 @@ CLAUDE.md            # ★既存に CLAUDE.md があるなら「上書きせず�
 .claude/hooks/       # 誠実性チェック + 権限ポスチャのフック一式。フォルダごと。★settings.json の hooks で発火させる
 .claude/agents/      # 監査用の専門サブエージェント（honesty-auditor / authz-idor-auditor / contract-checker）。フォルダごと
 scripts/analyze_l1.py # 観測レシート → allow-list 候補の抽出（任意・単発実行）
+scripts/backlog.py    # プロダクトバックログ（docs/backlog.html）の生成・更新 CLI。★必須
+templates/backlog/    # バックログの HTML テンプレート（UX をフレームワークが担保）。★必須
 ```
 
 > `.claude/hooks/honesty_check.py` は最優先原則「嘘をつくコードの禁止」の機械的バックストップ。
@@ -199,9 +203,13 @@ scripts/analyze_l1.py # 観測レシート → allow-list 候補の抽出（任�
 > `hooks`（下記 B）で発火させる。
 >
 > **既存プロジェクトへの導入は `scripts/apply_posture.py` で自動化できる**（このリポジトリの checkout から
-> `python3 scripts/apply_posture.py /path/to/your-project`）。フック配置・settings.json のマージ
-> （**既存の allow・独自フックは温存**）・posture 初期値の作成・レシートの .gitignore 追記までを冪等に行う。
+> `python3 scripts/apply_posture.py [--posture auto|conservative] /path/to/your-project`）。フック配置・settings.json のマージ
+> （**既存の allow・独自フックは温存**）・posture 初期値（既定 `auto`）の作成・レシートの .gitignore 追記までを冪等に行う。
+> `--set-user-default-mode auto` を付けると `~/.claude/settings.json` の `permissions.defaultMode` も更新する（opt-in）。
 > コミットはしないので、実行後に diff を確認してからコミットする。
+>
+> **バックログは HTML のみ**（`docs/backlog.html`）。既存の `docs/backlog.md` があれば
+> `python3 scripts/backlog.py import-md docs/backlog.md --project "案件名"` で一度だけ移行し、旧 Markdown は削除する。
 
 ### B. レベル2セキュリティ一式（任意・推奨）
 
@@ -320,14 +328,17 @@ orchestrator-skills/
 ├── templates/
 │   ├── dependabot.yml               # 依存更新の設定テンプレ（.github/ にコピーして使う）
 │   ├── scheduled-audit.yml          # 定期 audit のワークフローテンプレ（opt-in・.github/workflows/ にコピー）
+│   ├── backlog/backlog.html         # バックログの HTML テンプレート（絞り込み・検索・進捗・ダーク対応。UX をここで担保）
+│   ├── auto-mode-rules.json         # auto mode 分類器の推奨ルール（opt-in。apply_posture.py --install-auto-mode-rules）
 │   └── stack-profiles/              # スタック別の起動/テスト/fake手順
 │       ├── _template.md             # プロファイルの契約（観点）
 │       ├── laravel.md / fastapi.md  # リファレンス例（要確認・権威ではない）
 │       └── README.md
 ├── scripts/
 │   ├── analyze_l1.py                # 観測レシート → allow-list 昇格候補の抽出
-│   ├── apply_posture.py             # 既存PJへの権限ポスチャ導入（温存マージ・冪等）
-│   └── verify_permission_hooks.py   # フック一式の検証ハーネス（保守者向け・46ケース）
+│   ├── apply_posture.py             # 既存PJへの権限ポスチャ導入（温存マージ・冪等・--posture / --set-user-default-mode）
+│   ├── backlog.py                   # プロダクトバックログ（docs/backlog.html）の生成・更新 CLI
+│   └── verify_permission_hooks.py   # フック一式の検証ハーネス（保守者向け・auto mode 共存を含む）
 ├── .pre-commit-config.yaml          # Gitleaks等のコミット前フック
 ├── .gitleaks.toml                   # シークレットスキャンのルール
 ├── .zap/rules.tsv                   # ZAP誤検知の抑制ルール
@@ -348,9 +359,9 @@ orchestrator-skills/
 ├── .orchestrator/
 │   ├── project_status.yaml         # 状態管理（再開地点）
 │   ├── working-agreement.md        # 作業合意（git役割・ブランチ戦略・その他。初期化で合意し引き継ぐ）
-│   └── permission_posture.json     # 選択した権限ポスチャ（引き継がれる。既定 conservative）
+│   └── permission_posture.json     # 選択した権限ポスチャ（引き継がれる。既定 auto）
 ├── docs/
-│   ├── backlog.md             # バックログ
+│   ├── backlog.html           # プロダクトバックログ（HTML 1ファイル。ブラウザで開いて絞り込み・検索・進捗。scripts/backlog.py で更新）
 │   ├── design/F-001.md        # 設計書
 │   ├── test_spec/F-001.md     # テスト仕様書
 │   ├── consistency_report/    # 整合性レポート
@@ -393,20 +404,31 @@ AI駆動開発向けのレベル2セキュリティを無料ツールだけで�
 - **権限ポスチャ**（どこまで AI に自動承認を委ねるか）をユーザーが選べる。詳細は下記＋[`docs/security/PERMISSION_POSTURE.md`](docs/security/PERMISSION_POSTURE.md)
 - **ステークホルダー説明用の証跡**: CIが SBOM（CycloneDX）・ライセンスレポート・SARIF を成果物として出力（private でも無料で証跡が残る）。ステークホルダー向けの説明は [`SECURITY.md`](SECURITY.md)、リリースごとのレポートは `security-report` スキルで生成
 
-### 権限ポスチャ（自動承認をユーザーが選ぶ）
+### 権限ポスチャ（自動承認をユーザーが選ぶ）— Claude Code の auto mode を正とする
 
-「毎回 yes を押す」か「可逆な操作は自動で進める」かは、人・案件・会社の方針で変わる。**ユーザーが
-ポスチャを選び、指示が無ければ前回の選択を引き継ぐ**（CLAUDE.md Rule 9。Git 役割分担の Rule 8 と同じ型）。
+Claude Code には **auto mode**（バックグラウンドの分類器が操作ごとに承認/拒否を判断するモード）があり、
+ターミナル起動の組み込み既定にもなっている。本フレームワークはこれを**正**として扱い、フックは分類器と
+競合する自動承認を足さない。足すのは「分類器が何と言おうと拒否する **deny フロア**」と観測レシートだけ。
+**ユーザーがポスチャを選び、指示が無ければ前回の選択を引き継ぐ**（CLAUDE.md Rule 9。Git 役割分担の Rule 8 と同じ型）。
 
-| posture | 自動承認 | 向いている人 |
+| posture | 誰が自動承認するか | 向いている人 |
 |---|---|---|
-| **conservative**（既定） | なし（全部人が承認） | 情報漏洩を防ぎたい企業・慎重派 |
-| **balanced** | 可逆・ローカル・読取専用のみ | 手間を減らしたい通常運用 |
-| **permissive** | deny フロア以外すべて | リスク受容・使い捨てワークツリー |
+| **auto**（推奨・既定） | Claude Code の auto mode 分類器（フックは allow を出さない） | 一人SIer・通常運用 |
+| **conservative** | なし。リポジトリの settings.json に Manual（`defaultMode: "default"`）を書いて全員に強制 | 情報漏洩を防ぎたい企業・慎重派 |
+| **balanced** | フック: 可逆・ローカル・読取専用のみ | auto mode が使えない環境 |
+| **permissive** | フック: deny フロア以外すべて | auto mode が使えない環境でリスク受容 |
 
-- **deny フロアは全ポスチャで常時有効**: `rm -rf` / force push / sudo / `.env`・特権ファイル書込 / `curl|sh` 等の
-  不可逆・外向き・自己権限昇格は permissive でも拒否する（だから全許可も責任もって選べる）。
+- **deny フロアは全ポスチャ・全モードで常時有効**: `rm -rf` / force push / sudo / `.env`・特権ファイル書込 / `curl|sh` 等の
+  不可逆・外向き・自己権限昇格は auto mode でも permissive でも拒否する（だから全許可も責任もって選べる）。
+  `permissions.ask`（`git push` 等）は auto mode でも必ず人に聞く。
+- **リポジトリは権限を「締める」ことはできるが「緩める」ことはできない**。Manual はプロジェクト設定から強制できる一方、
+  **auto mode を既定にするのは人の設定**。`permissions.defaultMode: "auto"` は**プロジェクトの `.claude/settings.json`
+  では無効**（Claude Code 仕様）。`~/.claude/settings.json` に書くか、`claude --permission-mode auto` で起動するか、
+  `python3 scripts/apply_posture.py --set-user-default-mode auto .` を使う。ポスチャ `auto` なのにセッションが auto mode
+  でないときは、フックが初回に**その旨を表示**する（「自動承認されているつもり」にさせない）。
 - ポスチャは `.orchestrator/permission_posture.json` に永続化。壊れていれば安全側（conservative）に倒し**明示する**。
+- （任意）分類器にフレームワークの意図を教える推奨ルール `templates/auto-mode-rules.json` を
+  `python3 scripts/apply_posture.py --install-auto-mode-rules` で `~/.claude/settings.json` にマージできる（全プロジェクトに効く・`--remove-auto-mode-rules` で除去）。
 - 全ポスチャで操作を観測レシートに記録（秘密は redact 済み・コミット禁止）。溜まったら
   `python3 scripts/analyze_l1.py` で「毎回 yes している可逆コマンド」を allow-list 候補として抽出できる（人が精査して採用）。
 

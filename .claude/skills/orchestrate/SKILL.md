@@ -11,23 +11,32 @@
 
 **ファイル配置の原則（厳守）**: 状態管理は `.orchestrator/`、成果物は `docs/` に分ける。
 - 状態（再開地点）: `.orchestrator/project_status.yaml`
-- 成果物: `docs/backlog.md` / `docs/requirements.md` / `docs/design/` 等
+- 成果物: `docs/backlog.html` / `docs/requirements.md` / `docs/design/` 等
 
-### 1. `docs/backlog.md` を作成
+### 1. `docs/backlog.html` を作成（HTML のみ。Markdown のバックログは作らない）
 
-```markdown
-# プロダクトバックログ
+バックログは **HTML 1ファイル**で管理する。表示（未完了/完了・優先度・Tier・種別の絞り込み、検索、
+並べ替え、進捗バー、詳細展開、ダーク/ライト、file:// で開ける自己完結）はフレームワーク所有のテンプレート
+`templates/backlog/backlog.html` が担保し、データは HTML 内の JSON に埋め込む。
+**HTML を手で書かない・編集しない。必ず `scripts/backlog.py` を通す**（書込み前にスキーマ検証。通らなければ書かない）。
 
-## サマリー
-- 全項目数: N
-- 完了: 0 / 進行中: 0 / 未着手: N
-
-## バックログ
-
-| ID | 機能名 | 優先度 | ステータス | Tier | 概要 |
-|----|--------|--------|-----------|------|------|
-| F-001 | xxx | 高 | ⬜ 未着手 | B | xxx |
+```bash
+python3 scripts/backlog.py init --project "案件名"
+# 要件定義書（docs/requirements.md §3 機能一覧）の各行を登録。1件ずつでも JSON 一括でもよい
+python3 scripts/backlog.py add --id F-001 --name "xxx" --priority 高 --tier B \
+  --summary "..." --acceptance "受入条件1" --acceptance "受入条件2"
+python3 scripts/backlog.py add --from-json /tmp/items.json     # [{"id":"F-002","name":...}, ...]
+python3 scripts/backlog.py validate
 ```
+
+- 語彙: status = 未着手/進行中/完了/保留/エスカレーション、priority = 高/中/低、tier = S/A/B/C/D/未判定、
+  type = feature（F-xxx）/ td（TD-xxx。audit の起票先）。
+- 工程が進むたびに `set-status` / `update --phase` で更新し、`project_status.yaml` と**同時に**書き換える。
+  設計書等ができたら `update F-001 --link design=design/F-001.md` で紐づける。
+- 既存プロジェクトに `docs/backlog.md` があれば `python3 scripts/backlog.py import-md docs/backlog.md --project "案件名"`
+  で一度だけ移行し、**旧 Markdown は削除**する（二重帳簿にしない）。
+- `scripts/backlog.py` / `templates/backlog/backlog.html` が無いプロジェクトでは、フレームワークから両方をコピーする
+  （README「既存プロジェクトに組み込む」A）。テンプレートを更新したら `backlog.py render` で既存バックログに反映する。
 
 ### 2. `.orchestrator/project_status.yaml` を作成
 
@@ -173,13 +182,21 @@ docs/
 各項目は**推奨（既定）を先に示す**。ユーザーが「おまかせ」なら既定を採用する。
 
 #### ① 確認の粒度（権限ポスチャ）— Rule 9
-`.orchestrator/permission_posture.json` に永続化（**機械可読の正**。フックが毎回読む）。既定 `conservative`。
-- **conservative**（既定・企業/情報漏洩防止向け）: 自動承認しない。全部人が承認。導入しただけで
-  危険操作は拒否され、予期せぬ自動許可は起きない。
-- **balanced**: 可逆・ローカル・読取専用だけ自動承認。他は確認。
-- **permissive**（リスク受容・使い捨てワークツリー向け）: フロア以外を全自動承認（`would_have_asked` を記録）。
-- どのポスチャでも **deny フロア（`rm -rf`・force push・sudo・`.env`/`.claude` 特権ファイル書込 等）は常時拒否**。
+`.orchestrator/permission_posture.json` に永続化（**機械可読の正**。フックが毎回読む）。既定（推奨）は **`auto`**。
+- **auto**（既定・推奨）: Claude Code の **auto mode**（分類器）に任せる。フックは自動承認を足さず、deny フロアと
+  観測だけ。auto mode が使えない／別モードのセッションでは conservative 相当で動き、初回にその旨を表示する。
+- **conservative**（企業/情報漏洩防止向け）: リポジトリ単位で Manual を強制する。エージェントは `.claude/settings.json` を
+  書けない（deny フロア）ので、**ユーザーに `python3 scripts/apply_posture.py --posture conservative .` の実行を依頼**する
+  （プロジェクト設定に `defaultMode: "default"` が書かれ、クローンした全員に効く）。
+- **balanced** / **permissive**: auto mode が使えない環境向け（可逆のみ／フロア以外すべてをフックが承認）。
+- どのポスチャ・どのモードでも **deny フロア（再帰強制削除・force push・特権昇格・`.env`/`.claude` 特権ファイル書込 等）は常時拒否**。
 - 選択値で `permission_posture.json` を `{"posture":"<選択>"}` として作成。詳細は `docs/security/PERMISSION_POSTURE.md`。
+- **auto mode を既定で使うかどうかは人の設定**（`permissions.defaultMode: "auto"` はプロジェクトの `.claude/settings.json`
+  では無効）。インタビューでは現在のセッションの permission mode を伝え、必要なら
+  `python3 scripts/apply_posture.py --set-user-default-mode auto .` または `claude --permission-mode auto` を**提案**する。
+  エージェント自身が `~/.claude/settings.json` や `.claude/settings.json` を書き換えない。
+- auto mode で長時間自走させる利用者には、分類器ルールの導入（`python3 scripts/apply_posture.py --install-auto-mode-rules`、
+  opt-in・全プロジェクトに効く）を**選択肢として案内**する（勧めるのは定型作業のブロックが実際に邪魔になってから）。
 
 #### ② git の役割 — Rule 8
 どこまで AI が git を操作するか。既定は **(b) PR 作成まで**。
@@ -203,8 +220,9 @@ docs/
 ```markdown
 # 作業合意（Working Agreement）
 - 合意日: YYYY-MM-DD
-- 権限ポスチャ: conservative | balanced | permissive
+- 権限ポスチャ: auto | conservative | balanced | permissive
   （機械可読の正は .orchestrator/permission_posture.json。ここは人間向けの写し）
+- 起動時の permission mode（確認用）: auto | default | ...（auto でなければ ①のとおり人が設定する）
 - git の役割: (a) コミットまで | (b) PR作成まで | (c) マージまで自走
 - ブランチ戦略: 機能別(feat/F-XXX-…) | フェーズ/まとめ | 単一作業ブランチ | main直(非推奨)
 - その他の取り決め:
@@ -223,7 +241,7 @@ docs/
 ### 5. パイプライン実行
 
 #### Phase 0: 要件定義（対話型）
-1. `requirements` Skillで要件を整理 → `docs/requirements.md` + `docs/backlog.md`
+1. `requirements` Skillで要件を整理 → `docs/requirements.md`、承認後に機能一覧を `scripts/backlog.py add` で `docs/backlog.html` に登録
 2. ユーザーが「承認」するまで次に進まない
 3. 未決事項がある場合、設計に進めるものと止めるべきものを区別して報告
 
@@ -241,17 +259,26 @@ docs/
    - pass → 次へ
    - fail → 該当Skillに差し戻し（最大3回）
 7. `review-guide` Skillでレビュー対象マップ生成
+8. **停止判定（auto mode 前提・Tier の `autonomy`）**: `review_tier_definition.yaml` の該当 Tier を見る
+   - S: Gate 1 通過直後にも停止し、人が設計を承認してから 3. に進む（`gate1_design_approval`）。review-guide 後も停止
+   - A: review-guide 後に停止し、人間レビュー完了（マージ可否）を待つ
+   - B/C/D: `set-status ... --phase human_review` にして次の機能へ進んでよい。ただし未レビュー滞留が
+     `orchestration.auto_mode_flow.max_pending_human_reviews`（既定 3）に達したら停止して消化を待つ
+   - 停止時は「どこまで進んだか・人に見てほしい点・次に再開する地点」を要約して伝える（無音で止まらない）
 
-各ステップ完了時にproject_status.yamlを更新する。
+各ステップ完了時に project_status.yaml と `docs/backlog.html`（`backlog.py set-status/update --phase`）を**同時に**更新する。
 
 ## セッション再開
 
 1. `.orchestrator/project_status.yaml` を読む
 2. current.feature_id と current.phase を確認
 3. `.orchestrator/working-agreement.md` と `permission_posture.json` を読み、**現在の作業合意を毎回明示する**
-   （loud・引き継ぎを不可視にしない）。例:「現在の合意 — 権限ポスチャ: balanced／git: PR作成まで／
-   ブランチ: 機能別。変更する場合は指示してください」。どちらのファイルも無ければ既定
-   （ポスチャ=conservative／git=PR作成まで／ブランチ=機能別）として扱い、初回は 4-5 に沿って合意する。
+   （loud・引き継ぎを不可視にしない）。例:「現在の合意 — 権限ポスチャ: auto（このセッションは auto mode）／
+   git: PR作成まで／ブランチ: 機能別。変更する場合は指示してください」。どちらのファイルも無ければ既定
+   （ポスチャ=auto／git=PR作成まで／ブランチ=機能別）として扱い、初回は 4-5 に沿って合意する。
+   ポスチャが auto なのにセッションが auto mode でなければ、その旨と有効化手順（人が行う）を伝える。
+3b. `docs/backlog.html` を `python3 scripts/backlog.py list --status 進行中 --status 未着手` で読み、
+   人間レビュー待ち（phase=human_review）の件数が上限を超えていないか確認する。
    ユーザーから指示が無ければ、その合意のまま続行する（CLAUDE.md Rule 8/9）。
 4. 未解決のイシューがあれば報告
 5. 前回の続きから実行再開

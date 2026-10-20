@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="backlog-template-version" content="1.0.0">
+<meta name="color-scheme" content="light dark">
+<title>プロダクトバックログ</title>
+<!--
+  このファイルは AI Orchestrator フレームワークが生成・更新するプロダクトバックログです。
+  - 表示（この HTML/CSS/JS）はフレームワークが所有するテンプレート（templates/backlog/backlog.html）
+  - データは下の <script id="backlog-data" type="application/json"> に埋め込まれた JSON
+  更新は scripts/backlog.py で行います（add / update / set-status / render ...）。
+  HTML を手で編集しないでください。テンプレートを更新したら `backlog.py render` で反映します。
+  外部 CDN・フォント・画像は使いません（file:// で開けます）。
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --surface-2: #f0efec;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --hair: #e1e0d9;
+    --border: rgba(11, 11, 11, 0.10);
+    --focus: #2a78d6;
+    --accent: #2a78d6;
+    --accent-ink: #ffffff;
+    /* ステータス（固定・意味を持つ色。アイコン＋ラベルと必ず併用） */
+    --st-todo: #898781;
+    --st-doing: #2a78d6;
+    --st-done: #0ca30c;
+    --st-done-ink: #006300;
+    --st-hold: #fab219;
+    --st-esc: #d03b3b;
+    /* 優先度（順序尺度・単色ランプ） */
+    --pr-high: #1c5cab;
+    --pr-mid: #3987e5;
+    --pr-low: #86b6ef;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --surface-2: #232322;
+      --ink: #f0efec;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --hair: #2c2c2a;
+      --border: rgba(255, 255, 255, 0.10);
+      --focus: #3987e5;
+      --accent: #3987e5;
+      --st-doing: #3987e5;
+      --st-done-ink: #0ca30c;
+      --pr-high: #86b6ef;
+      --pr-mid: #3987e5;
+      --pr-low: #1c5cab;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232322;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --hair: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.10);
+    --focus: #3987e5;
+    --accent: #3987e5;
+    --st-doing: #3987e5;
+    --st-done-ink: #0ca30c;
+    --pr-high: #86b6ef;
+    --pr-mid: #3987e5;
+    --pr-low: #1c5cab;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  a { color: var(--accent); }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
+  header.top h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: 0.01em; }
+  header.top .meta { color: var(--ink-2); font-size: 13px; }
+  header.top .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; box-shadow: var(--shadow);
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.small { padding: 3px 8px; font-size: 12px; border-radius: 999px; }
+
+  /* サマリー */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; box-shadow: var(--shadow); cursor: pointer; text-align: left;
+  }
+  .tile:hover { background: var(--surface-2); }
+  .tile[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .tile .label { color: var(--ink-2); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .tile .value { font-size: 24px; font-weight: 650; margin-top: 2px; }
+  .tile .sub { color: var(--muted); font-size: 12px; }
+  .progress { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .progress .row { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
+  .bar { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; display: flex; gap: 2px; }
+  .bar span { display: block; height: 100%; }
+  .bar .done { background: var(--st-done); }
+  .bar .doing { background: var(--st-doing); }
+  .bar .hold { background: var(--st-hold); }
+  .bar .esc { background: var(--st-esc); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+
+  /* フィルタ */
+  .filters { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .filters .line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 4px 0; }
+  .filters .line + .line { border-top: 1px dashed var(--hair); }
+  .filters .name { color: var(--ink-2); font-size: 12px; min-width: 64px; }
+  .search { flex: 1; min-width: 180px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--page); }
+  .chip {
+    border: 1px solid var(--border); background: var(--page); color: var(--ink);
+    border-radius: 999px; padding: 3px 10px; cursor: pointer; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { background: var(--surface-2); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: transparent; }
+  .chip .n { color: inherit; opacity: 0.7; font-variant-numeric: tabular-nums; }
+  .filters .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .result { color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+  /* テーブル */
+  .tablewrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; font-size: 12px; color: var(--ink-2); font-weight: 600; padding: 8px 10px;
+    border-bottom: 1px solid var(--hair); background: var(--surface-2); white-space: nowrap; user-select: none;
+  }
+  thead th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+  thead th button:hover { color: var(--ink); }
+  thead th .arrow { opacity: 0.5; font-size: 10px; }
+  thead th[aria-sort] .arrow { opacity: 1; }
+  tbody tr.item { border-top: 1px solid var(--hair); cursor: pointer; }
+  tbody tr.item:hover { background: var(--surface-2); }
+  tbody tr.item[aria-expanded="true"] { background: var(--surface-2); }
+  tbody td { padding: 8px 10px; vertical-align: top; }
+  td.id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; white-space: nowrap; color: var(--ink-2); }
+  td.name { font-weight: 550; }
+  td.name .summary { display: block; color: var(--ink-2); font-weight: 400; font-size: 12.5px; margin-top: 2px; }
+  td.date { white-space: nowrap; color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+  .tag { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; font-size: 12px; white-space: nowrap; background: var(--page); }
+  .tag.tier { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 650; }
+  .tag.tier.S, .tag.tier.A { border-color: var(--ink-2); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  .pr-高 .dot { background: var(--pr-high); } .pr-中 .dot { background: var(--pr-mid); } .pr-低 .dot { background: var(--pr-low); }
+  .st-未着手 .dot { background: var(--st-todo); }
+  .st-進行中 .dot { background: var(--st-doing); }
+  .st-完了 .dot { background: var(--st-done); } .st-完了 { color: var(--st-done-ink); }
+  .st-保留 .dot { background: var(--st-hold); }
+  .st-エスカレーション .dot { background: var(--st-esc); } .st-エスカレーション { color: var(--st-esc); }
+  .type-td .tag.type { border-style: dashed; }
+
+  tr.detail td { padding: 0 10px 12px 10px; background: var(--surface-2); border-top: 0; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 20px; padding: 6px 0 0 0; }
+  .detail-grid h4 { margin: 0 0 4px 0; font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  .detail-grid ul, .detail-grid ol { margin: 0; padding-left: 18px; }
+  .detail-grid li { margin: 1px 0; }
+  .detail-grid .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; }
+  .kv dt { color: var(--ink-2); } .kv dd { margin: 0; }
+  .empty { padding: 32px 16px; text-align: center; color: var(--ink-2); }
+  .empty strong { display: block; color: var(--ink); margin-bottom: 4px; }
+
+  footer.foot { color: var(--muted); font-size: 12px; margin-top: 14px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+
+  /* 狭い画面: テーブルをカード化 */
+  @media (max-width: 720px) {
+    thead { display: none; }
+    tbody tr.item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 8px 10px; }
+    tbody tr.item td { padding: 0; display: block; }
+    tbody tr.item td.id { grid-column: 1; }
+    tbody tr.item td.name { grid-column: 1 / -1; }
+    tbody tr.item td.date { grid-column: 2; grid-row: 1; text-align: right; }
+    tbody tr.item td.tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+    tr.detail { display: block; } tr.detail td { display: block; }
+  }
+  @media print {
+    body { background: #fff; color: #000; }
+    .filters, header.top .btn, .tile, footer .nohint { display: none !important; }
+    .tablewrap, .progress { box-shadow: none; border-color: #999; }
+    tr.detail { display: table-row !important; }
+    .tag { border-color: #999; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 id="title">プロダクトバックログ</h1>
+    <div class="meta" id="meta"></div>
+    <div class="spacer"></div>
+    <button class="btn small" id="toggle-open" type="button" aria-pressed="false" title="未完了（未着手・進行中・保留・エスカレーション）のみを表示">未完了のみ</button>
+    <button class="btn small" id="theme" type="button" aria-label="テーマ切替">🌓 テーマ</button>
+  </header>
+
+  <section class="tiles" id="tiles" aria-label="ステータス別の件数"></section>
+
+  <section class="progress" aria-label="進捗">
+    <div class="row"><span>進捗（完了率）</span><strong id="pct"></strong></div>
+    <div class="bar" id="bar" role="img" aria-label="ステータス別の構成比"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="filters" aria-label="絞り込み">
+    <div class="line">
+      <label class="name" for="q">検索</label>
+      <input class="search" id="q" type="search" placeholder="ID・名称・概要・受入条件・ファイル参照で検索" autocomplete="off">
+      <div class="right">
+        <span class="result" id="result"></span>
+        <button class="btn small" id="clear" type="button">絞り込みを解除</button>
+      </div>
+    </div>
+    <div class="line"><span class="name">ステータス</span><div id="f-status" role="group" aria-label="ステータスで絞り込み"></div></div>
+    <div class="line"><span class="name">優先度</span><div id="f-priority" role="group" aria-label="優先度で絞り込み"></div></div>
+    <div class="line"><span class="name">Tier</span><div id="f-tier" role="group" aria-label="Tierで絞り込み"></div></div>
+    <div class="line"><span class="name">種別</span><div id="f-type" role="group" aria-label="種別で絞り込み"></div></div>
+  </section>
+
+  <section class="tablewrap">
+    <table id="table" aria-describedby="result">
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden></div>
+  </section>
+
+  <footer class="foot">
+    <span id="foot-meta"></span>
+    <span class="nohint">更新は <code>scripts/backlog.py</code> で行い、この HTML を直接編集しない。</span>
+  </footer>
+</div>
+
+<script id="backlog-data" type="application/json">{"schema_version":1,"project":"","updated_at":"","items":[]}</script>
+
+<script>
+(function () {
+  'use strict';
+  // ---------- 定義（scripts/backlog.py の語彙と一致させる） ----------
+  const STATUSES = ['未着手', '進行中', '完了', '保留', 'エスカレーション'];
+  const OPEN_STATUSES = ['未着手', '進行中', '保留', 'エスカレーション'];
+  const PRIORITIES = ['高', '中', '低'];
+  const TIERS = ['S', 'A', 'B', 'C', 'D', '未判定'];
+  const TYPES = { feature: '機能', td: '技術的負債' };
+  const ST_ICON = { '未着手': '○', '進行中': '◐', '完了': '✓', '保留': '⏸', 'エスカレーション': '⚠' };
+  const ST_CLASS = { '未着手': 'todo', '進行中': 'doing', '完了': 'done', '保留': 'hold', 'エスカレーション': 'esc' };
+  const COLUMNS = [
+    { key: 'id', label: 'ID' },
+    { key: 'name', label: '名称 / 概要' },
+    { key: 'type', label: '種別' },
+    { key: 'priority', label: '優先度' },
+    { key: 'tier', label: 'Tier' },
+    { key: 'status', label: 'ステータス' },
+    { key: 'updated_at', label: '更新日' },
+  ];
+  const LS_KEY = 'orchestrator.backlog.ui.v1';
+
+  // ---------- データ ----------
+  let data;
+  try {
+    data = JSON.parse(document.getElementById('backlog-data').textContent);
+  } catch (e) {
+    document.getElementById('empty').hidden = false;
+    document.getElementById('empty').innerHTML = '<strong>バックログデータを読み込めません</strong>JSON の解析に失敗しました。scripts/backlog.py validate を実行してください。';
+    return;
+  }
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  // ---------- 状態（絞り込み・並び） ----------
+  const defaultState = () => ({ q: '', status: [], priority: [], tier: [], type: [], openOnly: false, sort: { key: 'id', dir: 1 } });
+  let state = defaultState();
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    if (saved && typeof saved === 'object') state = Object.assign(defaultState(), saved);
+  } catch (e) { /* 保存は利便性のみ。読めなくても描画は正常に行う */ }
+  const persist = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* noop */ } };
+
+  // テーマ
+  const root = document.documentElement;
+  try { const t = localStorage.getItem(LS_KEY + '.theme'); if (t === 'dark' || t === 'light') root.dataset.theme = t; } catch (e) { /* noop */ }
+  document.getElementById('theme').addEventListener('click', () => {
+    const dark = root.dataset.theme === 'dark' || (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem(LS_KEY + '.theme', root.dataset.theme); } catch (e) { /* noop */ }
+  });
+
+  // ---------- ユーティリティ ----------
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const el = (tag, attrs, html) => { const n = document.createElement(tag); if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]); if (html != null) n.innerHTML = html; return n; };
+  const prRank = { '高': 0, '中': 1, '低': 2 };
+  const tierRank = { S: 0, A: 1, B: 2, C: 3, D: 4, '未判定': 5 };
+  const stRank = Object.fromEntries(STATUSES.map((s, i) => [s, i]));
+  const typeLabel = (t) => TYPES[t] || t || '';
+  const haystack = (it) => [it.id, it.name, it.summary, (it.acceptance || []).join(' '), it.location, it.source, it.notes, (it.depends_on || []).join(' ')].join(' ').toLowerCase();
+
+  // ---------- 絞り込み ----------
+  function filtered() {
+    const q = state.q.trim().toLowerCase();
+    return items.filter((it) => {
+      if (state.openOnly && !OPEN_STATUSES.includes(it.status)) return false;
+      if (state.status.length && !state.status.includes(it.status)) return false;
+      if (state.priority.length && !state.priority.includes(it.priority)) return false;
+      if (state.tier.length && !state.tier.includes(it.tier || '未判定')) return false;
+      if (state.type.length && !state.type.includes(it.type || 'feature')) return false;
+      if (q && !haystack(it).includes(q)) return false;
+      return true;
+    }).sort((a, b) => {
+      const k = state.sort.key, d = state.sort.dir;
+      let va, vb;
+      if (k === 'priority') { va = prRank[a.priority] ?? 9; vb = prRank[b.priority] ?? 9; }
+      else if (k === 'tier') { va = tierRank[a.tier || '未判定'] ?? 9; vb = tierRank[b.tier || '未判定'] ?? 9; }
+      else if (k === 'status') { va = stRank[a.status] ?? 9; vb = stRank[b.status] ?? 9; }
+      else if (k === 'type') { va = typeLabel(a.type); vb = typeLabel(b.type); }
+      else { va = a[k] || ''; vb = b[k] || ''; }
+      if (va < vb) return -1 * d; if (va > vb) return 1 * d;
+      return String(a.id).localeCompare(String(b.id)); // 安定ソート
+    });
+  }
+
+  // ---------- 描画: ヘッダ ----------
+  function renderHeader() {
+    document.getElementById('title').textContent = data.project ? `プロダクトバックログ — ${data.project}` : 'プロダクトバックログ';
+    document.title = data.project ? `バックログ — ${data.project}` : 'プロダクトバックログ';
+    document.getElementById('meta').textContent = data.updated_at ? `最終更新: ${data.updated_at}` : '';
+    document.getElementById('foot-meta').textContent = `schema v${data.schema_version ?? '?'} / template v${document.querySelector('meta[name="backlog-template-version"]').content} / 全 ${items.length} 件`;
+  }
+
+  // ---------- 描画: サマリー（件数はデータから計算。手書きしない） ----------
+  function renderSummary() {
+    const counts = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+    items.forEach((it) => { if (counts[it.status] != null) counts[it.status]++; });
+    const total = items.length;
+    const tiles = document.getElementById('tiles');
+    tiles.innerHTML = '';
+    const mk = (label, value, sub, onClick, pressed, cls) => {
+      const b = el('button', { type: 'button', class: 'tile', 'aria-pressed': pressed ? 'true' : 'false' });
+      b.innerHTML = `<div class="label ${cls || ''}">${cls ? '<span class="dot"></span>' : ''}${esc(label)}</div><div class="value">${value}</div><div class="sub">${esc(sub)}</div>`;
+      b.addEventListener('click', onClick);
+      tiles.appendChild(b);
+    };
+    mk('全項目', total, `機能 ${items.filter((i) => (i.type || 'feature') === 'feature').length} / TD ${items.filter((i) => i.type === 'td').length}`,
+      () => { state.status = []; state.openOnly = false; apply(); }, !state.status.length && !state.openOnly);
+    STATUSES.forEach((s) => {
+      mk(`${ST_ICON[s]} ${s}`, counts[s], total ? `${Math.round(counts[s] / total * 100)}%` : '—',
+        () => { state.status = state.status.length === 1 && state.status[0] === s ? [] : [s]; state.openOnly = false; apply(); },
+        state.status.length === 1 && state.status[0] === s, `st-${s}`);
+    });
+    const done = counts['完了'];
+    document.getElementById('pct').textContent = total ? `${done} / ${total}（${Math.round(done / total * 100)}%）` : '項目なし';
+    const bar = document.getElementById('bar');
+    bar.innerHTML = '';
+    ['完了', '進行中', '保留', 'エスカレーション'].forEach((s) => {
+      if (!counts[s]) return;
+      const span = el('span', { class: ST_CLASS[s], title: `${s} ${counts[s]}件` });
+      span.style.width = `${counts[s] / total * 100}%`;
+      bar.appendChild(span);
+    });
+    bar.setAttribute('aria-label', STATUSES.map((s) => `${s} ${counts[s]}件`).join('、'));
+    document.getElementById('legend').innerHTML = STATUSES.map((s) => `<span class="st-${esc(s)}"><span class="dot"></span> ${ST_ICON[s]} ${esc(s)} ${counts[s]}</span>`).join('');
+  }
+
+  // ---------- 描画: チップ ----------
+  function renderChips(containerId, values, key, labelOf, classOf) {
+    const c = document.getElementById(containerId);
+    c.innerHTML = '';
+    values.forEach((v) => {
+      const n = items.filter((it) => (key === 'tier' ? (it.tier || '未判定') : key === 'type' ? (it.type || 'feature') : it[key]) === v).length;
+      const b = el('button', { type: 'button', class: `chip ${classOf ? classOf(v) : ''}`, 'aria-pressed': state[key].includes(v) ? 'true' : 'false' });
+      b.innerHTML = `${classOf ? '<span class="dot"></span>' : ''}${esc(labelOf ? labelOf(v) : v)} <span class="n">${n}</span>`;
+      b.addEventListener('click', () => {
+        const i = state[key].indexOf(v);
+        if (i >= 0) state[key].splice(i, 1); else state[key].push(v);
+        apply();
+      });
+      c.appendChild(b);
+    });
+  }
+
+  // ---------- 描画: テーブル ----------
+  function renderHead() {
+    const tr = document.getElementById('head');
+    tr.innerHTML = '';
+    COLUMNS.forEach((col) => {
+      const th = el('th', { scope: 'col' });
+      if (state.sort.key === col.key) th.setAttribute('aria-sort', state.sort.dir > 0 ? 'ascending' : 'descending');
+      const b = el('button', { type: 'button', title: `${col.label}で並べ替え` }, `${esc(col.label)} <span class="arrow">${state.sort.key === col.key ? (state.sort.dir > 0 ? '▲' : '▼') : '↕'}</span>`);
+      b.addEventListener('click', () => {
+        if (state.sort.key === col.key) state.sort.dir *= -1; else state.sort = { key: col.key, dir: 1 };
+        apply();
+      });
+      th.appendChild(b);
+      tr.appendChild(th);
+    });
+  }
+
+  function detailHtml(it) {
+    const links = it.links || {};
+    const linkList = Object.keys(links).filter((k) => links[k]).map((k) => `<li><a href="${esc(links[k])}">${esc(k)}</a> <span class="mono">${esc(links[k])}</span></li>`).join('');
+    const acc = (it.acceptance || []).map((a) => `<li>${esc(a)}</li>`).join('');
+    const deps = (it.depends_on || []).map((d) => `<span class="tag">${esc(d)}</span>`).join(' ');
+    const td = it.type === 'td' ? `
+      <div><h4>技術的負債の詳細</h4><dl class="kv">
+        <dt>深刻度</dt><dd>${esc(it.severity || '—')}</dd>
+        <dt>対処方針</dt><dd>${esc(it.action || '—')}</dd>
+        <dt>箇所</dt><dd class="mono">${esc(it.location || '—')}</dd>
+        <dt>出典</dt><dd class="mono">${esc(it.source || '—')}</dd>
+      </dl></div>` : '';
+    return `<div class="detail-grid">
+      <div><h4>概要</h4><div>${esc(it.summary || '—')}</div>
+        ${it.notes ? `<h4 style="margin-top:8px">メモ</h4><div>${esc(it.notes)}</div>` : ''}</div>
+      <div><h4>受入条件</h4>${acc ? `<ol>${acc}</ol>` : '<div>—</div>'}</div>
+      <div><h4>工程・依存</h4><dl class="kv">
+        <dt>フェーズ</dt><dd>${esc(it.phase || '—')}</dd>
+        <dt>依存</dt><dd>${deps || '—'}</dd>
+        <dt>作成日</dt><dd>${esc(it.created_at || '—')}</dd>
+        <dt>更新日</dt><dd>${esc(it.updated_at || '—')}</dd>
+      </dl></div>
+      ${td}
+      <div><h4>関連ドキュメント</h4>${linkList ? `<ul>${linkList}</ul>` : '<div>—</div>'}</div>
+    </div>`;
+  }
+
+  const expanded = new Set();
+  function renderBody(rows) {
+    const body = document.getElementById('body');
+    body.innerHTML = '';
+    const empty = document.getElementById('empty');
+    if (!rows.length) {
+      empty.hidden = false;
+      empty.innerHTML = items.length
+        ? '<strong>該当する項目がありません</strong>絞り込み条件を変えるか「絞り込みを解除」を押してください。'
+        : '<strong>バックログは空です</strong><code>scripts/backlog.py add</code> で項目を追加してください。';
+      return;
+    }
+    empty.hidden = true;
+    rows.forEach((it) => {
+      const open = expanded.has(it.id);
+      const tr = el('tr', { class: `item type-${esc(it.type || 'feature')}`, tabindex: '0', role: 'button', 'aria-expanded': open ? 'true' : 'false', 'aria-controls': `d-${esc(it.id)}` });
+      tr.innerHTML = `
+        <td class="id">${esc(it.id)}</td>
+        <td class="name">${esc(it.name)}<span class="summary">${esc(it.summary || '')}</span></td>
+        <td class="tags"><span class="tag type">${esc(typeLabel(it.type))}</span></td>
+        <td class="tags"><span class="tag pr-${esc(it.priority)}"><span class="dot"></span>${esc(it.priority || '—')}</span></td>
+        <td class="tags"><span class="tag tier ${esc(it.tier || '')}">${esc(it.tier || '未判定')}</span></td>
+        <td class="tags"><span class="tag st-${esc(it.status)}"><span class="dot"></span>${ST_ICON[it.status] || ''} ${esc(it.status)}</span></td>
+        <td class="date">${esc(it.updated_at || '')}</td>`;
+      const toggle = () => { if (expanded.has(it.id)) expanded.delete(it.id); else expanded.add(it.id); apply(); };
+      tr.addEventListener('click', (e) => { if (e.target.closest('a')) return; toggle(); });
+      tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      body.appendChild(tr);
+      const dtr = el('tr', { class: 'detail', id: `d-${esc(it.id)}` });
+      if (!open) dtr.hidden = true;
+      dtr.innerHTML = `<td colspan="${COLUMNS.length}">${detailHtml(it)}</td>`;
+      body.appendChild(dtr);
+    });
+  }
+
+  // ---------- 適用 ----------
+  function apply() {
+    persist();
+    renderSummary();
+    renderChips('f-status', STATUSES, 'status', (s) => `${ST_ICON[s]} ${s}`, (s) => `st-${s}`);
+    renderChips('f-priority', PRIORITIES, 'priority', null, (p) => `pr-${p}`);
+    renderChips('f-tier', TIERS, 'tier');
+    renderChips('f-type', Object.keys(TYPES), 'type', typeLabel);
+    document.getElementById('toggle-open').setAttribute('aria-pressed', state.openOnly ? 'true' : 'false');
+    document.getElementById('q').value = state.q;
+    renderHead();
+    const rows = filtered();
+    renderBody(rows);
+    const active = state.status.length + state.priority.length + state.tier.length + state.type.length + (state.q ? 1 : 0) + (state.openOnly ? 1 : 0);
+    document.getElementById('result').textContent = `${rows.length} 件 / 全 ${items.length} 件${active ? `（絞り込み ${active}）` : ''}`;
+  }
+
+  document.getElementById('q').addEventListener('input', (e) => { state.q = e.target.value; apply(); });
+  document.getElementById('clear').addEventListener('click', () => { const s = state.sort; state = defaultState(); state.sort = s; apply(); });
+  document.getElementById('toggle-open').addEventListener('click', () => { state.openOnly = !state.openOnly; apply(); });
+
+  renderHeader();
+  apply();
+})();
+</script>
+</body>
+</html>

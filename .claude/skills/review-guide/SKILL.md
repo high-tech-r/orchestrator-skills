@@ -10,7 +10,7 @@
 
 ## 入力
 - `docs/design/F-XXX.md`（設計書 + 実装マッピング）
-- Tier情報（バックログから）
+- Tier情報（バックログ `docs/backlog.html` から。`python3 scripts/backlog.py show F-XXX`）
 - `.claude/skills/review-guide/review_tier_definition.yaml`（Tier判定定義）
 - 生成されたソースコードのファイル一覧
 - `docker-compose.yaml`（環境構築手順に必要）
@@ -34,9 +34,16 @@
 4. 判定に迷った場合は1つ上のTierを採用する
 5. 判定結果とその根拠をテスト手順書の冒頭に明記する
 
-### Tier別の人間承認要否
-- **Tier S, A**: AIレビュー後に人間が最終承認する（requires_human_approval: true）
-- **Tier B, C, D**: AIレビューのみで承認可（ai_autonomous: true）
+### Tier別の人間承認要否と停止点（auto mode 前提）
+ツール呼び出しの承認は Claude Code の auto mode／権限ポスチャが担う。Tier が決めるのは
+**パイプラインがどこで人を待つか**（`review_tier_definition.yaml` 各 Tier の `autonomy`）。
+- **Tier S**: 設計承認（Gate 1 直後）とマージ前の2点で停止。人間が全行レビュー＋手動テスト。人間レビュー完了まで次の機能に進まない
+- **Tier A**: マージ前に停止。人間が重点レビュー。完了まで次の機能に進まない
+- **Tier B, C, D**: 停止点なし。本手順書を `phase=human_review` で残し、次の機能へ進んでよい
+  （未レビュー滞留は `orchestration.auto_mode_flow.max_pending_human_reviews`（既定 3）まで）
+- 手順書の冒頭「基本情報」に **Tier・停止点・人間レビューが必須か後追いか** を明記する
+- Tier 判定の結果は `python3 scripts/backlog.py update F-XXX --tier <Tier> --link review_map=review_map/F-XXX.md` で
+  バックログにも反映する
 
 ## Gate 3（マージ前 /code-review）の effort 判定
 
@@ -69,6 +76,7 @@ Tierを判定したら、続けて **Gate 3 の推奨 effort** を算出し、�
 
 ## 基本情報
 - Tier: B
+- 停止点: なし（B は人間レビュー後追い可。S なら「設計承認＋マージ前」、A なら「マージ前」で停止）
 - Gate 3 推奨 /code-review effort: medium（基準 medium。risk_signals 非該当）
 - 推定所要時間: XX分
 - 前提条件: Docker Desktop がインストールされていること

@@ -49,7 +49,12 @@
 
 ### 2. 機能単位で処理する
 - バックログの1アイテム（1機能）を処理の基本単位とする
-- 1機能の全工程が完了してから次の機能に進む
+- 1機能の全工程（review-guide まで）が完了してから次の機能に進む
+- **人間レビューを待つかどうかは Tier の `autonomy` が決める**（`review_tier_definition.yaml`）。
+  S/A は `human_checkpoints`（S: 設計承認＋マージ前／A: マージ前）で停止し、人間レビュー完了まで次に進まない。
+  B/C/D は review_map を残して次の機能へ進んでよいが、**人間レビュー待ちの滞留は
+  `orchestration.auto_mode_flow.max_pending_human_reviews`（既定 3）まで**。超えたら停止して消化を待つ
+  （auto mode で AI が自走する分、「人が立ち止まる地点」を Tier で明示する）
 
 ### 3. Gate判定
 - Gate 1（設計レビュー）: 設計完了後、要件カバレッジ・矛盾・曖昧性をチェック
@@ -68,7 +73,7 @@ project_root/
 │   └── stack-profile.md   # アクティブなスタックプロファイル（起動/テスト/fake等の具体）
 ├── docs/
 │   ├── requirements.md    # 要件定義書（Phase 0で生成）
-│   ├── backlog.md
+│   ├── backlog.html       # プロダクトバックログ（HTML 1ファイルのみ。Markdown は作らない。scripts/backlog.py で更新）
 │   ├── design/           # 機能別の設計書
 │   ├── test_spec/         # 機能別のテスト仕様書
 │   ├── consistency_report/
@@ -87,10 +92,24 @@ project_root/
 依存定義とロックファイルは**言語ごとに変わる**が、Docker（Dockerfile + docker-compose）は
 再現性担保のため**言語を問わず必須**とする。
 
+#### バックログは HTML のみで管理する（`docs/backlog.html`）
+- **Markdown のバックログ（`docs/backlog.md`）は作らない・残さない**。既存があれば
+  `python3 scripts/backlog.py import-md docs/backlog.md` で一度だけ移行し、旧ファイルは削除する。
+- 表示（未完了/完了・優先度・Tier・種別の絞り込み、検索、並べ替え、進捗、詳細展開、ダーク/ライト、
+  file:// で開ける自己完結）はフレームワーク所有のテンプレート `templates/backlog/backlog.html` が担保する。
+  **データは HTML 内の JSON（`<script id="backlog-data">`）**。利用者が UX を自作する必要はなく、作り直してもいけない。
+- **人も AI も HTML を手で編集しない**。追加・更新・ステータス変更・TD 起票はすべて `scripts/backlog.py`
+  （`init` / `add` / `update` / `set-status` / `list` / `validate` / `render`）で行う。CLI は書込み前に
+  スキーマ検証し、通らなければ**書かずに止まる**（壊れたバックログを「正常」として保存しない＝誠実性）。
+- 件数・完了率は表示時にデータから計算する（手書きのサマリーを置かない）。
+- `.orchestrator/project_status.yaml`（再開用の工程状態）と `docs/backlog.html`（ビジネス面のバックログ）の
+  ステータスは**同じ操作で同時に更新**し、食い違わせない。
+
 ### 5. Skill呼び出し順序
-0. `requirements` — 要件定義（対話型。ユーザー承認まで次に進まない）。
+0. `requirements` — 要件定義（対話型。ユーザー承認まで次に進まない）。承認後、機能一覧を
+   `scripts/backlog.py add --from-json` で `docs/backlog.html` に登録する。
    任意で顧客への要件確認用スライド（Gamma取り込み用）を生成できる（スコープ合意用。書式は delivery が真実源）
-1. `orchestrate` — パイプライン開始・再開時に最初に呼ぶ
+1. `orchestrate` — パイプライン開始・再開時に最初に呼ぶ（`docs/backlog.html` の `init` もここ）
 2. `design` — 設計書生成
 3. `consistency-check` — Gate 1（設計レビュー）
 4. `implement` — ソースコード生成
@@ -160,27 +179,47 @@ project_root/
 - 合意した内容（git 役割・ブランチ戦略・その他）は `.orchestrator/working-agreement.md`（人間可読の真実源）と
   `feedback_history`（変更履歴）に記録し、以降その前提で動く。指示が無ければ引き継ぎ、変えたくなったら再合意する。
 
-### 9. 権限ポスチャ（最初にユーザーと合意する）
+### 9. 権限ポスチャ（最初にユーザーと合意する）— Claude Code の auto mode を正とする
 このフレームワークは多くの人が使う。リスクを受容して全許可したい人も、情報漏洩を防ぎたい企業もいる。
 **どこまで AI に自動承認を委ねるかは人・案件で異なるため、最初の作業に入る前にユーザーとポスチャを合意し、
 その範囲を超えない。** ユーザーからの指示が無ければ、**前回合意した（永続化された）ポスチャを引き継ぐ**。
-永続値が無ければ最も保守的な `conservative` を既定とする（Rule 8 と同じ「一度合意し、記録し、超えない、
+永続値が無ければフックは最も保守的な `conservative` 相当で動く（Rule 8 と同じ「一度合意し、記録し、超えない、
 変えたければ再合意する」型）。
 
-- 選べるポスチャ（**deny フロアは全ポスチャで常時有効**＝これが permissive を責任もって提供できる前提）:
-  - **conservative**（企業・情報漏洩防止向け／既定）: 自動承認しない。deny フロア＋観測ログのみ。すべて人が承認する。
-    導入しただけで素の Claude Code より安全（危険操作を拒否）になり、**予期せぬ自動許可は一切起きない**。
-  - **balanced**: 可逆・ローカル・読取専用の操作（`policy.classify()=="auto"`）のみ自動承認。それ以外は従来どおり確認する。
-  - **permissive**（リスク受容・使い捨てワークツリー向け）: deny フロアに触れない操作をすべて自動承認。
-    人が確認したはずの操作はレシート（`would_have_asked`）に記録する。
+**前提の更新**: このポスチャ機構は Claude Code に auto mode（分類器による自動承認）が無い時代の近似として
+作られた。現在は **auto mode が Claude Code の組み込み既定**（ターミナル起動・v2.1.283+）であり、本フレームワークは
+**auto mode を正（authority）として扱う**。フックが足すのは「分類器が何と言おうと拒否する deny フロア」と
+観測レシートであり、分類器と競合する allow は出さない。
+
+- 選べるポスチャ（**deny フロアは全ポスチャ・全モードで常時有効**＝これが auto / permissive を責任もって提供できる前提）:
+  - **auto**（推奨・新規プロジェクトの既定）: Claude Code の auto mode 分類器に任せる。フックは allow を出さず、
+    フロアと観測のみ。セッションが実際には auto mode でない（利用不可・管理者が無効化・別モードで起動）ときは
+    conservative 相当で動き、**初回に systemMessage でその旨を明示**する（「自動承認されているつもり」にさせない）。
+  - **conservative**（企業・情報漏洩防止向け）: **リポジトリ単位で Manual を強制する**。`apply_posture.py --posture conservative`
+    がプロジェクトの `.claude/settings.json` に `permissions.defaultMode: "default"` を書き、クローンした全員に効く
+    （上書きできるのは `--permission-mode` フラグと managed settings だけ）。フックは自動承認せず、deny フロア＋観測のみ。
+    組織として auto mode を禁止するなら managed settings の `disableAutoMode` を併用する。
+  - **balanced** / **permissive**: auto mode が**使えない**環境向けの近似（可逆操作のみ／フロア以外すべてをフックが承認）。
+    auto mode セッションでは allow を出さず分類器に委ねる（初回に通知）。
+- **非対称性: リポジトリは権限を「締める」ことはできるが「緩める」ことはできない**。`"default"`（Manual）はプロジェクト設定から
+  有効で、設定優先順位は managed > CLI > プロジェクト > ユーザー。一方 **auto mode を「デフォルト」にするのはユーザー（人）の操作**:
+  `permissions.defaultMode: "auto"` は**プロジェクトの `.claude/settings.json` では無効**（かつユーザー設定の defaultMode まで無視される）。
+  有効なのは `~/.claude/settings.json`・managed settings・`claude --permission-mode auto` のみ。エージェントは
+  自分の権限を上げる設定変更を行わず、`scripts/apply_posture.py --set-user-default-mode auto` 等を**提案**する。
+  プロジェクトの settings.json に `defaultMode: "auto"` を書かない（`apply_posture.py` が検出したら警告する）。
 - ポスチャは `.orchestrator/permission_posture.json` に永続化し、PreToolUse フック（`permission_gate.py`）が
   毎回読む。読めない・壊れている・未知値のときは最も安全な `conservative` にフォールバックし、その旨を
   **必ず可視化する**（loud。`honesty_check.py` と同じ「無音で劣化させない」原則）。
-- **deny フロア（`.claude/hooks/policy.py` + `deny_guard.py`）はポスチャに関わらず常時有効**: 不可逆・外向き・
+- **deny フロア（`.claude/hooks/policy.py` + `deny_guard.py`）はポスチャ・モードに関わらず常時有効**: 不可逆・外向き・
   自己権限昇格（`rm -rf` / force push / sudo / `.env` 書込 / `curl|sh` / 特権定義ファイル `.claude/settings.json`・
-  `.claude/hooks/`・`.git/hooks/` への書込）は permissive でも拒否する（skills/agents 等の振る舞い定義は対象外）。
+  `.claude/hooks/`・`.git/hooks/` への書込）は auto mode でも permissive でも拒否する（skills/agents 等の振る舞い定義は対象外）。
   独立フック（allow を一切出さない）として残すことで、分類ロジックにバグが出てもフロアは破れない
-  （`deny` は `allow` に勝つ／宣言的 `permissions.deny` は前方一致 glob で弱いので regex フロアの代替にはならない）。
+  （hook の `deny` と `permissions.deny` は分類器より先に評価される／宣言的 `permissions.deny` は前方一致 glob で弱いので regex フロアの代替にはならない）。
+  `permissions.ask`（`git push` 等）は auto mode でも必ず人に聞く。
+- **分類器への意図伝達（任意）**: 分類器はプロジェクトの CLAUDE.md（本ファイル）を読むので、ここに書いた運用ルールは分類器の
+  判断材料にもなる。クロスプロジェクトのルールは `templates/auto-mode-rules.json` を
+  `scripts/apply_posture.py --install-auto-mode-rules` で `~/.claude/settings.json` の `autoMode` にマージできる（opt-in・
+  `[AI Orchestrator]` 接頭辞で除去可能・散文なので deny フロアの代替にはならない）。
 - 合意したポスチャは `feedback_history` に記録し（監査証跡）、以降その前提で動く。**変えたくなったら再合意する**。
 - 観測レシート（`~/.claude/receipts/*/l1-shadow.jsonl`）はコマンド列を含むため**コミットしない**（`.gitignore`）。
   秘密は書き込み前に `policy.redact()` でマスクする。溜まったレシートは `scripts/analyze_l1.py` で

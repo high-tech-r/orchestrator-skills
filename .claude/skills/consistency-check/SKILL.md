@@ -41,7 +41,7 @@
 | 用語統一 | 変数名・メソッド名・テーブル名が設計書と一致 | 不一致を指摘 |
 | 依存パッケージ整合 | コードでimport/requireしているパッケージが全て依存定義ファイル（requirements.txt / package.json / go.mod 等）に記載されているか | 不足を指摘 |
 | Docker実行可能性 | Dockerfile + docker-compose.yamlでビルド・起動できる構成か | 不備を指摘 |
-| Tier判定妥当性 | `review_tier_definition.yaml` のkeywords/risk_signalsと実装コードを照合し、バックログのTier指定が妥当か検証。決済・個人情報・認証を扱う機能が Tier C/D（低リスク）に設定されていないか | Tier引き上げを推奨 |
+| Tier判定妥当性 | `review_tier_definition.yaml` のkeywords/risk_signalsと実装コードを照合し、バックログ（`docs/backlog.html`。`scripts/backlog.py show F-XXX`）のTier指定が妥当か検証。決済・個人情報・認証を扱う機能が Tier C/D（低リスク）に設定されていないか | Tier引き上げを推奨 |
 | 偽の成功（最優先） | 副作用（メール送信・DB保存・状態変更）を伴わずに成功（200/201・成功メッセージ）を返していないか。未実装処理を成功扱いしていないか。**失敗時のフォールバックが「成功」として報告されていないか**（例: 処理失敗時に元データを返して completed 扱い） | implementに差し戻し（blocking） |
 | エラーの握り潰し | 空の`catch`・例外を飲んで`null`/`true`を返す箇所がないか。特に401で握り潰してリカバリしていない箇所 | implementに差し戻し（blocking） |
 | 壊れたデータ生成 | 必須カラム欠落のレコード作成（例: `hashed_password` NULL）や、異常系での勝手な補完生成がないか | implementに差し戻し（blocking） |
