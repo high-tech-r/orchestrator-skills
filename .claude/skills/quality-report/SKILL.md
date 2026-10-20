@@ -8,7 +8,7 @@
 セキュリティ面は `security-report`、本スキルは**機能品質**を担当する。
 
 ## 入力（実データから転記。推測しない）
-- `docs/backlog.md` … 機能一覧・Tier・ステータス
+- `docs/backlog.html` … 機能一覧・Tier・ステータス（`python3 scripts/backlog.py list --format json` で取得。HTML を目視で転記しない）
 - `docs/test_spec/F-XXX.md` … テストケース数・受入条件カバレッジ
 - `tests/` のテスト実行結果（`docker compose exec app <テストコマンド>` の出力）
 - `docs/consistency_report/F-XXX_gate1.md` / `_gate2.md` … Gate 1/2 の合否・指摘

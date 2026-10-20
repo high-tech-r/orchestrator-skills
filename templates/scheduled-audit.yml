@@ -25,7 +25,7 @@
 #
 # ---- 誠実性（このワークフローは修正しない）----------------------------------
 # audit は「起票 → 人間が優先度判断 → 別ブランチで修正」。このワークフローは
-# **ソースを変更せず**、docs/audit/ と docs/backlog.md に結果を書いた PR を出すだけ。
+# **ソースを変更せず**、docs/audit/ と docs/backlog.html（scripts/backlog.py 経由）に結果を書いた PR を出すだけ。
 # =============================================================================
 
 name: Scheduled Audit
@@ -67,7 +67,7 @@ jobs:
             - 高価値レンズは専門サブエージェント（authz-idor-auditor / honesty-auditor /
               contract-checker）を活用し、Step4 の敵対的再検証で反証を試みて確度をタグ付けする。
             - **ソースコードは一切変更しないこと。** これは監査であって修正ではない。
-            - 確定した指摘を `docs/audit/` にレポート、`docs/backlog.md` に TD として採番登録し、
+            - 確定した指摘を `docs/audit/` にレポート、`docs/backlog.html` に `python3 scripts/backlog.py add --type td ...` で TD として採番登録し、
               `.orchestrator/project_status.yaml` があれば反映する。各指摘に file:line・深刻度・対処方針。
             - 上記の docs/ 変更を作業ブランチにコミットし、**PR を1本作成**する。タイトルは
               「chore(audit): 定期監査 <日付>」。本文に高深刻度サマリーを載せる。ラベル

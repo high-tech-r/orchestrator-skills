@@ -102,10 +102,16 @@
 
 ### Step 5: レポート出力・バックログ登録（成果の固定）
 - `docs/audit/YYYY-MM-DD_<領域>.md` に領域別レポート、`docs/audit/YYYY-MM-DD_summary.md` に統合サマリー。
-- 確定した指摘を `docs/backlog.md` に **TD（技術的負債）項目として採番登録**し、
-  `.orchestrator/project_status.yaml` にも反映する。各項目に必ず:
-  **`file:line`**（着手時にそのまま作業できる粒度）・深刻度・**対処方針**（修正 / 未使用なら撤去 /
-  リファクタ）・バグ↔リファクタの区別。
+- 確定した指摘を `docs/backlog.html` に **TD（技術的負債）項目として採番登録**し、
+  `.orchestrator/project_status.yaml` にも反映する。登録は必ず CLI で行う（HTML を手で編集しない）:
+  ```bash
+  python3 scripts/backlog.py add --type td --name "<一言>" --priority 高 --severity 高 \
+    --location "src/api/x.py:42" --action 修正 --source docs/audit/YYYY-MM-DD_summary.md \
+    --summary "<何が壊れるか・再現筋>" --tier A
+  ```
+  各項目に必ず: **`--location file:line`**（着手時にそのまま作業できる粒度）・`--severity`（深刻度）・
+  **`--action`（修正 / 未使用なら撤去 / リファクタ / 要調査）**・`--summary` にバグ↔リファクタの区別。
+  CLI はこれらが欠けていると**書き込まずに止まる**（粒度の担保）。
 - 修正はユーザーが優先度を判断してから（監査スキル自身は修正しない）。
 
 ### Step 6（推奨）: 第2ラウンド以降 — NET-NEW の機械巡回

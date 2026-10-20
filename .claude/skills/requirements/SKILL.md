@@ -142,6 +142,14 @@ OKであれば「承認」と指示してもらえれば、設計フェーズに
 
 **ユーザーが「承認」するまで設計フェーズに進まない。**
 
+承認されたら、§3 機能一覧を **`docs/backlog.html` に登録**する（Markdown のバックログは作らない）:
+```bash
+python3 scripts/backlog.py init --project "案件名"            # 無ければ（orchestrate が既に作っていれば不要）
+python3 scripts/backlog.py add --from-json /tmp/backlog_items.json   # [{"id":"F-001","name":..,"priority":"高","tier":"B","summary":..,"acceptance":[..]}]
+python3 scripts/backlog.py validate
+```
+受入条件は `acceptance` 配列に1条件1要素で入れる（HTML 側で絞り込み・検索の対象になる）。
+
 ### Step 6（任意）: 顧客への要件確認用スライドを生成する（Gamma取り込み用）
 
 顧客に要件を確認・合意してもらう共有資料が必要なときに生成する。**スコープ合意を最初に
