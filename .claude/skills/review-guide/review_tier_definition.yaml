@@ -14,6 +14,14 @@
 #   - 開発者: Tier S/AはAIレビュー後に人間が最終承認する。
 #     Tier B以下はAIレビューのみで承認可とする。
 #
+# 自律性の2軸（混同しない）:
+#   (1) ツール呼び出しの承認 … Claude Code の permission mode（auto mode の分類器）と
+#       権限ポスチャ（.orchestrator/permission_posture.json）が決める。Tier は関与しない。
+#       auto mode が既定の現在、「1操作ごとに人が yes を押す」は前提にならない。
+#   (2) パイプラインの停止点 … Tier が決める（各 Tier の `autonomy`）。auto mode で AI が
+#       自走する分、「どこで人が立ち止まるか」を Tier で明示する。これが本定義の役割。
+#       （旧 `ai_autonomy: none/partial/high/full` は (1) と (2) が混ざっていたため廃止）
+#
 # Tier判定フロー:
 #   1. 対象機能のkeywordsとrisk_signalsを照合する
 #   2. 複数Tierに該当する場合、最も高いTierを採用する
@@ -31,7 +39,11 @@ tiers:
     name: "全行レビュー + 手動テスト"
     summary: "お金・個人情報・認証 — 1行のミスが訴訟や数千万円の損失に直結する領域"
     requires_human_approval: true
-    ai_autonomy: "none"
+    autonomy:   # auto mode 下でパイプラインが「人を待つ」地点（Rule 2 の例外ではなく厳格化）
+      human_checkpoints: ["gate1_design_approval", "pre_merge"]  # 設計承認 → 実装 / マージ前に人間レビュー必須
+      continue_to_next_feature_without_human_review: false       # 人間レビュー完了まで次の機能に進まない
+      manual_test_by_human: required
+      note: "金銭・個人情報・認証。設計を人が承認してから実装に入る。Gate 3 (/code-review max) を必ず提案"
 
     # Gate 3: マージ前の敵対的差分レビュー（/code-review）
     code_review:
@@ -122,7 +134,11 @@ tiers:
     name: "重点レビュー + 自動テスト必須"
     summary: "データ操作・外部連携 — エラーハンドリングや順序を間違えるとデータが消える"
     requires_human_approval: true
-    ai_autonomy: "partial"
+    autonomy:
+      human_checkpoints: ["pre_merge"]                            # 設計〜Gate 2 は自走。マージ前に人間レビュー
+      continue_to_next_feature_without_human_review: false
+      manual_test_by_human: optional
+      note: "データ操作・外部連携。review-guide まで自走し、人間レビューを待ってから次へ"
 
     # Gate 3: マージ前の敵対的差分レビュー（/code-review）
     code_review:
@@ -198,7 +214,11 @@ tiers:
     name: "差分レビュー + 自動テスト推奨"
     summary: "定型的なビジネスロジック — パターンが確立されており、AIの得意領域だが意図通りか差分で確認"
     requires_human_approval: false
-    ai_autonomy: "high"
+    autonomy:
+      human_checkpoints: []                                       # 停止点なし（review_map を残して先へ進める）
+      continue_to_next_feature_without_human_review: true         # ただし未レビュー滞留は orchestration.max_pending_human_reviews まで
+      manual_test_by_human: not_required
+      note: "定型ロジック。人間レビューは後追いでよい（差分レビュー）。risk_signals 該当時は Gate 3 を提案"
 
     # Gate 3: マージ前の敵対的差分レビュー（/code-review）
     code_review:
@@ -264,7 +284,11 @@ tiers:
     name: "ざっと確認 + 動作確認のみ"
     summary: "表示・見た目系 — 壊れても画面を見れば気づける、致命的な影響なし"
     requires_human_approval: false
-    ai_autonomy: "full"
+    autonomy:
+      human_checkpoints: []
+      continue_to_next_feature_without_human_review: true
+      manual_test_by_human: visual_only
+      note: "表示系。動作確認は目視で後追い"
 
     # Gate 3: マージ前の敵対的差分レビュー（/code-review）
     code_review:
@@ -329,7 +353,11 @@ tiers:
     name: "AIに任せてOK（信頼して委譲）"
     summary: "設定・ボイラープレート — 壊れても再生成すれば済む、パターンが完全に決まっている"
     requires_human_approval: false
-    ai_autonomy: "full"
+    autonomy:
+      human_checkpoints: []
+      continue_to_next_feature_without_human_review: true
+      manual_test_by_human: not_required
+      note: "ボイラープレート。ビルド/lint が通れば先へ"
 
     # Gate 3: マージ前の敵対的差分レビュー（/code-review）
     code_review:
@@ -471,11 +499,22 @@ orchestration:
   # Tier判定で迷った場合のデフォルト動作
   default_on_ambiguity: "escalate_one_tier"
 
-  # 人間の承認が必要なTier
+  # 人間の承認が必要なTier（マージ可否の最終判断）
   human_approval_required: ["S", "A"]
 
-  # AIのみで完結可能なTier
+  # 人間レビューを待たずに次の機能へ進めるTier（auto mode での連続自走を許す範囲）
   ai_autonomous: ["B", "C", "D"]
+
+  # auto mode 前提の自走フロー（Tier 別 `autonomy` と組で読む）
+  auto_mode_flow:
+    # 人間レビュー待ち（review_map 生成済み・未確認）の機能をいくつまで溜めて先に進めるか。
+    # 超えたら S/A と同様に停止し、人間レビューの消化を待つ（AI が永久に走り続けない上限）。
+    max_pending_human_reviews: 3
+    # S/A の human_checkpoints に到達したら、進捗と「人に見てほしい点」を要約して停止する
+    stop_message_required: true
+    # 停止点・停止理由はバックログ（docs/backlog.html の phase=human_review）と
+    # project_status.yaml の両方に記録する（再開時に迷わない）
+    record_checkpoint_in: ["docs/backlog.html", ".orchestrator/project_status.yaml"]
 
   # Gate 3（/code-review）をフレームワークがデフォルトで提案するTier。
   # 「提案」であって強制ではない — 実行するかは常にユーザーが決める（CI非連携・非ブロッキング）。
