@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "AI Orchestrator フレームワーク推奨の auto mode 分類器ルール（opt-in）。",
+    "置き場所は ~/.claude/settings.json（または managed settings）のみ。プロジェクトの .claude/settings.json では読まれない。",
+    "導入: python3 scripts/apply_posture.py --install-auto-mode-rules ／ 除去: --remove-auto-mode-rules",
+    "各エントリは散文で、分類器が自然言語として読む。確定的ではないので deny フロア（.claude/hooks/policy.py）の代替にはならない。",
+    "\"$defaults\" は Claude Code 組み込みルールを残すための印。消すとそのセクションの組み込みルールが全部消える。",
+    "全ルールに \"[AI Orchestrator]\" 接頭辞を付ける（識別・除去のため）。プロジェクト固有の約束は CLAUDE.md に書く（分類器は CLAUDE.md も読む）。"
+  ],
+  "autoMode": {
+    "hard_deny": [
+      "$defaults",
+      "[AI Orchestrator] Never write to, edit, or replace the agent's own permission and enforcement definitions: .claude/settings.json, .claude/settings.local.json, anything under .claude/hooks/, or anything under .git/hooks/, by any means (editor tools, shell redirection, cp/mv/sed/tee, scripts). These files define what the agent may do; changing them is self-privilege escalation. Changes are made by the human (e.g. via scripts/apply_posture.py run by the user).",
+      "[AI Orchestrator] Never commit, push, upload, paste, or otherwise send permission receipt files (l1-shadow.jsonl, l1-decisions.jsonl, anything under a receipts/ directory) anywhere; they contain the command history of sessions.",
+      "[AI Orchestrator] Never work around a blocked read of secret files (.env and .env.*, *.pem, *.key, id_rsa, id_ed25519, secrets/, credentials*.json) by reading them through the shell, base64, python, or another indirection."
+    ],
+    "soft_deny": [
+      "$defaults",
+      "[AI Orchestrator] Do not change .orchestrator/permission_posture.json or .orchestrator/working-agreement.md unless the user's message explicitly asks to re-agree the permission posture or the working agreement.",
+      "[AI Orchestrator] Do not run destructive database operations against a project database (dropping or truncating tables/schemas/databases, deleting Docker volumes, docker compose down with -v, deleting migration history) unless the user explicitly asked for that exact action.",
+      "[AI Orchestrator] Do not edit docs/backlog.html directly with editor tools, sed, or scripts of your own; the product backlog is updated only through scripts/backlog.py so its data stays valid.",
+      "[AI Orchestrator] Do not merge into, or push directly to, the default branch (main/master) of a project unless the working agreement (.orchestrator/working-agreement.md) or the user's message explicitly allows it."
+    ],
+    "allow": [
+      "$defaults",
+      "[AI Orchestrator] Running the project's backlog CLI, python3 scripts/backlog.py (init/add/update/set-status/list/show/validate/render/import-md/export-json), which only rewrites docs/backlog.html.",
+      "[AI Orchestrator] Running the framework's read-only or temp-dir maintenance scripts: python3 scripts/verify_permission_hooks.py and python3 scripts/analyze_l1.py.",
+      "[AI Orchestrator] Building, starting, stopping, and exec-ing into the project's own containers with docker compose (up, build, down without -v, exec, logs, ps) and running the project's test suite inside them (pytest, npm test, php artisan test, go test, mvn test, ./gradlew test, make test).",
+      "[AI Orchestrator] Reading and writing pipeline artifacts inside the project: docs/ (design, test_spec, consistency_report, review_map, audit, delivery), src/, tests/, .orchestrator/project_status.yaml, and .orchestrator/stack-profile.md."
+    ]
+  }
+}

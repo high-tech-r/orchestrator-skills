@@ -3,6 +3,19 @@
 
 使い方（このフレームワークの checkout から実行し、対象PJのパスを渡す）:
   python3 scripts/apply_posture.py /path/to/your-project [/path/to/another ...]
+  python3 scripts/apply_posture.py --posture conservative /path/to/enterprise-project
+  python3 scripts/apply_posture.py --set-user-default-mode auto /path/to/your-project
+      # ↑ ~/.claude/settings.json の permissions.defaultMode を "auto" にする（opt-in・バックアップ作成）。
+      #   auto mode は**プロジェクトの .claude/settings.json では有効化できない**（Claude Code 仕様）ため、
+      #   「auto mode をデフォルトにする」にはユーザー設定か `claude --permission-mode auto` が必要。
+  python3 scripts/apply_posture.py --install-auto-mode-rules      # 分類器ルール（templates/auto-mode-rules.json）を
+  python3 scripts/apply_posture.py --remove-auto-mode-rules       #   ~/.claude/settings.json の autoMode にマージ／除去（opt-in）
+
+非対称性（重要）: リポジトリは権限を**締める**ことはできるが**緩める**ことはできない。
+  - `--posture conservative` → プロジェクト .claude/settings.json に permissions.defaultMode="default"（Manual）を書く。
+    設定の優先順位は managed > CLI > プロジェクト > ユーザー なので、クローンした全員に Manual が強制される。
+  - `--posture auto` → defaultMode は書かない（auto はプロジェクト設定では無効）。Claude Code の組み込み既定
+    （ターミナルは auto）に乗る。本スクリプトが書いた "default" が残っていれば除去する。
 
 やること:
   1. 新フック（policy / deny_guard / l1_shadow_log / permission_gate）と scripts/analyze_l1.py を配置
@@ -13,8 +26,12 @@
        - permissions.deny / ask はアプリ用フロアを union（不足分のみ追加・削除なし）
        - hooks は**温存マージ**: 本スクリプト管轄のフック配線だけ正規形に差し替え、
          導入者の独自フックは残す（消えるものがあれば必ず報告する＝loud）
-  5. .orchestrator/permission_posture.json を conservative で作成（既存があれば尊重）
+  5. .orchestrator/permission_posture.json を作成（既定 auto。--posture で指定＝再合意。未指定なら既存を尊重）
+  5b. ポスチャに合わせて permissions.defaultMode を同期（conservative="default" を書く／それ以外は除去）
   6. .gitignore にレシート保護を追記（無ければ）
+  7. （--set-user-default-mode 指定時のみ）~/.claude/settings.json の permissions.defaultMode を更新
+  8. （--install/--remove-auto-mode-rules 指定時のみ）~/.claude/settings.json の autoMode に
+     フレームワーク推奨ルール（"[AI Orchestrator]" 接頭辞で識別・除去可能）をマージ／除去
 
 コミットはしない。実行後に対象PJの diff を確認して人がコミットする。
 詳細: docs/security/PERMISSION_POSTURE.md
@@ -43,6 +60,11 @@ APP_DENY_FLOOR = [
     "Bash(curl * | bash)", "Bash(curl * | sh)", "Bash(wget * | bash)", "Bash(wget * | sh)",
 ]
 APP_ASK = ["Bash(git push *)", "Bash(git reset --hard *)", "Bash(git rebase *)"]
+VALID_POSTURES = ("auto", "conservative", "balanced", "permissive")
+DEFAULT_POSTURE = "auto"  # Claude Code のネイティブ auto mode を正とする（CLAUDE.md Rule 9）
+USER_SETTINGS = os.path.expanduser("~/.claude/settings.json")
+AUTO_MODE_RULES = os.path.join(FW, "templates", "auto-mode-rules.json")
+RULE_TAG = "[AI Orchestrator]"
 
 RECEIPTS_GITIGNORE = """
 # --- 権限ポスチャの観測レシート（コマンド列を含むためコミット禁止） ---
@@ -99,7 +121,7 @@ def _merge_hooks(hooks_cfg, log):
         log.append(f"  hooks: 導入者の独自フック {n_custom} 件を温存")
 
 
-def apply(proj):
+def apply(proj, posture=DEFAULT_POSTURE, posture_explicit=False):
     log = []
     proj = os.path.abspath(proj)
     claude_dir = os.path.join(proj, ".claude")
@@ -157,21 +179,56 @@ def apply(proj):
         f.write("\n")
     log.append(f"  settings.json: allow {allow_n}件 温存 / deny +{len(added_deny)} / ask +{len(added_ask)}")
 
-    # 6. posture 既定 conservative（既存があれば尊重＝引き継ぎ）
+    # 6. posture（既定 auto）。--posture 明示＝再合意として上書き。未指定なら既存を尊重（引き継ぎ）
     orch = os.path.join(proj, ".orchestrator")
     os.makedirs(orch, exist_ok=True)
     pj = os.path.join(orch, "permission_posture.json")
-    if os.path.exists(pj):
+    effective = posture
+    if os.path.exists(pj) and not posture_explicit:
         try:
             cur = json.load(open(pj, encoding="utf-8")).get("posture")
         except Exception:
-            cur = "（読取不能）"
-        log.append(f"  permission_posture.json: 既存を尊重（{cur}）")
+            cur = None
+        if cur in VALID_POSTURES:
+            effective = cur
+            log.append(f"  permission_posture.json: 既存を尊重（{cur}）")
+        else:
+            log.append(f"  ⚠ permission_posture.json: 読取不能/不正値（{cur!r}）→ {posture} で書き直し")
+            effective = posture
+            with open(pj, "w", encoding="utf-8") as f:
+                json.dump({"posture": posture}, f, indent=2)
+                f.write("\n")
     else:
         with open(pj, "w", encoding="utf-8") as f:
-            json.dump({"posture": "conservative"}, f, indent=2)
+            json.dump({"posture": posture}, f, indent=2)
             f.write("\n")
-        log.append("  permission_posture.json: 新規作成 conservative（起動時の作業合意インタビューで変更可）")
+        log.append(f"  permission_posture.json: {'再合意で更新' if os.path.exists(pj) and posture_explicit else '新規作成'} {posture}"
+                   "（起動時の作業合意インタビューで変更可）")
+
+    # 6b. defaultMode の同期 — リポジトリは「締める」ことだけできる
+    dm = perms.get("defaultMode")
+    if dm in ("auto", "bypassPermissions"):
+        log.append(f"  ⚠ settings.json の permissions.defaultMode='{dm}' はプロジェクト設定では無効です"
+                   "（ユーザー設定の defaultMode も無視されます）。除去して ~/.claude/settings.json に移してください")
+        perms.pop("defaultMode", None)
+        log.append("  settings.json: 無効な defaultMode を除去しました")
+    if effective == "conservative":
+        if dm != "default":
+            perms["defaultMode"] = "default"
+            log.append("  settings.json: permissions.defaultMode=\"default\"（Manual）を設定 — クローンした全員に強制される"
+                       "（CLI フラグと managed settings だけがこれを上書きできる）")
+        else:
+            log.append("  settings.json: defaultMode=default 既存（conservative と整合）")
+    elif dm == "default":
+        perms.pop("defaultMode", None)
+        log.append(f"  settings.json: defaultMode=\"default\" を除去（ポスチャ {effective} は Claude Code の既定モードに乗る）")
+    if effective == "auto":
+        log.append("  ※ auto ポスチャは Claude Code の auto mode を正とする。auto mode 自体はプロジェクト設定では"
+                   "有効化できないため、起動時に auto mode でなければフックは conservative 相当で動き、その旨を表示する")
+    # settings.json を書き直す（6b で変更があり得るため最終形で保存）
+    with open(sp, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
     # 7. .gitignore レシート保護
     gi = os.path.join(proj, ".gitignore")
@@ -185,15 +242,142 @@ def apply(proj):
     return log
 
 
+def set_user_default_mode(mode):
+    """~/.claude/settings.json の permissions.defaultMode を更新する（opt-in・バックアップ・温存マージ）。
+    auto mode は ~/.claude/settings.json（または managed settings / --permission-mode）でしか既定化できない。"""
+    d = {}
+    if os.path.exists(USER_SETTINGS):
+        try:
+            d = json.load(open(USER_SETTINGS, encoding="utf-8")) or {}
+        except Exception as e:
+            print(f"ERROR: {USER_SETTINGS} を読めません（{e.__class__.__name__}）。手で確認してください", file=sys.stderr)
+            sys.exit(1)
+        shutil.copy2(USER_SETTINGS, USER_SETTINGS + ".bak")
+    perms = d.setdefault("permissions", {})
+    before = perms.get("defaultMode")
+    perms["defaultMode"] = mode
+    os.makedirs(os.path.dirname(USER_SETTINGS), exist_ok=True)
+    with open(USER_SETTINGS, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    print(f"\n~/.claude/settings.json: permissions.defaultMode {before!r} → {mode!r}"
+          + ("（バックアップ: settings.json.bak）" if before is not None or os.path.exists(USER_SETTINGS + ".bak") else ""))
+    if mode == "auto":
+        print("  auto mode が利用できない環境（旧バージョン・disableAutoMode・非対応モデル）では Manual で起動します。"
+              "起動後に `/permissions` またはステータス行でモードを確認してください。")
+
+
+def _load_user_settings():
+    d = {}
+    if os.path.exists(USER_SETTINGS):
+        try:
+            d = json.load(open(USER_SETTINGS, encoding="utf-8")) or {}
+        except Exception as e:
+            print(f"ERROR: {USER_SETTINGS} を読めません（{e.__class__.__name__}）。手で確認してください", file=sys.stderr)
+            sys.exit(1)
+        shutil.copy2(USER_SETTINGS, USER_SETTINGS + ".bak")
+    return d
+
+
+def _save_user_settings(d):
+    os.makedirs(os.path.dirname(USER_SETTINGS), exist_ok=True)
+    with open(USER_SETTINGS, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def install_auto_mode_rules():
+    """templates/auto-mode-rules.json の autoMode ルールを ~/.claude/settings.json にマージする（opt-in・冪等・温存）。
+    - 利用者の既存エントリは消さない。本スクリプトのルールは RULE_TAG 接頭辞で識別する（--remove で除去可能）。
+    - 利用者のリストに "$defaults" が無い（＝組み込みルールを意図的に置換している）場合は足さずに警告する。
+    - autoMode ルールはユーザー設定/managed settings にしか置けない（プロジェクト設定では読まれない）。"""
+    tpl = json.load(open(AUTO_MODE_RULES, encoding="utf-8")).get("autoMode", {})
+    d = _load_user_settings()
+    am = d.setdefault("autoMode", {})
+    added, kept, warn = 0, 0, []
+    for section, rules in tpl.items():
+        ours = [r for r in rules if r != "$defaults"]
+        if not all(r.startswith(RULE_TAG) for r in ours):
+            print(f"ERROR: テンプレート {section} に {RULE_TAG} 接頭辞の無いルールがあります（識別不能になるため中止）", file=sys.stderr)
+            sys.exit(1)
+        if section not in am:
+            am[section] = list(rules)  # "$defaults" を含めて丸ごと
+            added += len(ours)
+            continue
+        cur = am[section]
+        if "$defaults" not in cur:
+            warn.append(f"autoMode.{section} に \"$defaults\" が無い（組み込みルールを置換中）。足していません。意図的でなければ先頭に追加してください")
+        for r in ours:
+            if r in cur:
+                kept += 1
+            else:
+                cur.append(r)
+                added += 1
+    _save_user_settings(d)
+    print(f"\n~/.claude/settings.json: autoMode ルール 追加 {added} / 既存 {kept}（バックアップ: settings.json.bak）")
+    for w in warn:
+        print(f"  ⚠ {w}")
+    print("  反映確認: `claude auto-mode config`（有効なルール一覧）。ルールは散文で確定的ではないため、deny フロアの代替にはならない。")
+    print("  このルールは**あなたの全プロジェクト**に効く。不要になったら --remove-auto-mode-rules で除去できる。")
+
+
+def remove_auto_mode_rules():
+    d = _load_user_settings()
+    am = d.get("autoMode", {})
+    removed = 0
+    for section in list(am.keys()):
+        if isinstance(am[section], list):
+            before = len(am[section])
+            am[section] = [r for r in am[section] if not (isinstance(r, str) and r.startswith(RULE_TAG))]
+            removed += before - len(am[section])
+            if am[section] == ["$defaults"] or not am[section]:
+                del am[section]  # 組み込みのみ＝未設定と同じ
+    if not am:
+        d.pop("autoMode", None)
+    _save_user_settings(d)
+    print(f"\n~/.claude/settings.json: {RULE_TAG} ルールを {removed} 件除去（利用者の独自ルールは温存）")
+
+
 def main():
-    targets = sys.argv[1:]
-    if not targets:
+    args = sys.argv[1:]
+    posture, user_mode, targets = DEFAULT_POSTURE, None, []
+    posture_explicit, install_rules, remove_rules = False, False, False
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--posture":
+            i += 1
+            posture = args[i] if i < len(args) else ""
+            posture_explicit = True
+            if posture not in VALID_POSTURES:
+                print(f"ERROR: --posture は {VALID_POSTURES} のいずれか（{posture!r}）", file=sys.stderr)
+                sys.exit(1)
+        elif a == "--set-user-default-mode":
+            i += 1
+            user_mode = args[i] if i < len(args) else ""
+            if user_mode not in ("auto", "default", "acceptEdits", "plan"):
+                print(f"ERROR: --set-user-default-mode は auto / default / acceptEdits / plan（{user_mode!r}）", file=sys.stderr)
+                sys.exit(1)
+        elif a == "--install-auto-mode-rules":
+            install_rules = True
+        elif a == "--remove-auto-mode-rules":
+            remove_rules = True
+        else:
+            targets.append(a)
+        i += 1
+    if not targets and not user_mode and not install_rules and not remove_rules:
         print(__doc__)
         sys.exit(1)
     for proj in targets:
         print(f"\n########## {proj} ##########")
-        for line in apply(proj):
+        for line in apply(proj, posture, posture_explicit):
             print(line)
+    if user_mode:
+        set_user_default_mode(user_mode)
+    if remove_rules:
+        remove_auto_mode_rules()
+    if install_rules:
+        install_auto_mode_rules()
     print("\n完了（コミットはしていません）。対象PJの diff を確認してからコミットしてください。")
     print("フック配線の変更は settings.json の再読込（多くはセッション再起動）で反映されます。")
 

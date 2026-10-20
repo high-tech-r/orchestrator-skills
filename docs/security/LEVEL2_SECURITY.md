@@ -143,10 +143,12 @@ npm/PyPI/Go/Maven等10+エコシステム対応）。CIの OSV-Scanner は既知
 `.claudeignore` は Read ツールを防げないバグ報告があるため、`permissions.deny` を正とする。
 
 ### 7b. 権限ポスチャ（エージェントの自動承認 ＋ 常時 deny フロア）
-「どこまで AI に自動承認を委ねるか」をユーザーが選べる仕組み（`conservative`/`balanced`/`permissive`）。
-どのポスチャでも**不可逆・外向き・自己権限昇格を拒否する deny フロアは常時有効**（`permissions.deny` の
-宣言的ルール＋ `deny_guard.py` の regex フロアの二層）。既定 `conservative` は自動承認ゼロで、
-入れるだけで素の Claude Code より安全。詳細は [`PERMISSION_POSTURE.md`](PERMISSION_POSTURE.md)。
+「どこまで AI に自動承認を委ねるか」をユーザーが選べる仕組み（`auto`/`conservative`/`balanced`/`permissive`）。
+Claude Code の **auto mode**（分類器による自動承認）を正とし、フレームワークは分類器と競合せず
+**不可逆・外向き・自己権限昇格を拒否する deny フロアだけを常時有効**にする（`permissions.deny` の
+宣言的ルール＋ `deny_guard.py` の regex フロアの二層。どちらも分類器より先に効く）。推奨既定は `auto`、
+企業は `conservative`（＋ユーザー設定/managed settings で auto mode 自体を切る）。
+詳細は [`PERMISSION_POSTURE.md`](PERMISSION_POSTURE.md)。
 
 ### 8. DAST の注意
 `dast-zap.yml` は起動済みアプリが必要なため、手動実行（workflow_dispatch）または
