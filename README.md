@@ -196,9 +196,10 @@ templates/backlog/    # バックログの HTML テンプレート（UX をフ�
 > `.claude/settings.json` の `hooks` ブロック（下記 B でコピー）も併せて入れること。
 >
 > `.claude/hooks/` にはもう一つ、**権限ポスチャ**（どこまで AI に自動承認を委ねるか）の仕組みが入る
-> （`policy.py` / `deny_guard.py` / `permission_gate.py` / `l1_shadow_log.py`）。既定は最も安全な
-> `conservative`（自動承認ゼロ＋危険操作の deny フロアのみ）で、**入れるだけで素の Claude Code より
-> 安全**になる。3ポスチャ（conservative / balanced / permissive）の選び方は
+> （`policy.py` / `deny_guard.py` / `permission_gate.py` / `l1_shadow_log.py`）。Claude Code の auto mode を正とし、
+> フックは「分類器が何と言おうと拒否する deny フロア」と観測レシートだけを足す（既定ポスチャ `auto`）。
+> 企業向けには `conservative`（リポジトリ単位で Manual を強制）も選べ、どのポスチャでも**入れるだけで素の
+> Claude Code より安全**になる。4ポスチャ（auto / conservative / balanced / permissive）の選び方は
 > [`docs/security/PERMISSION_POSTURE.md`](docs/security/PERMISSION_POSTURE.md)。こちらも settings.json の
 > `hooks`（下記 B）で発火させる。
 >
@@ -346,7 +347,7 @@ orchestrator-skills/
 ├── docs/
 │   ├── security/
 │   │   ├── LEVEL2_SECURITY.md       # セキュリティ構成の解説・手順
-│   │   └── PERMISSION_POSTURE.md    # 権限ポスチャ（3段階の自動承認 + 常時 deny フロア）
+│   │   └── PERMISSION_POSTURE.md    # 権限ポスチャ（auto mode を正とする4ポスチャ + 常時 deny フロア）
 │   └── delivery/README.md           # 納品ドキュメントフォルダの規約
 ├── SECURITY.md                      # ステークホルダー向けセキュリティ説明書
 ├── example_requirements.yaml        # テスト用要件サンプル
