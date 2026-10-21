@@ -137,6 +137,13 @@ check(f"permissive/auto-mode: psql -> no allow (defer to classifier) (dec={decis
 rc, out, _ = run(GATE, with_mode(bash("psql -c x"), "auto", "s-a1-cons"), extra_env=dict(E, ORCH_POSTURE="conservative"))
 check(f"conservative/auto-mode: psql -> no allow (dec={decision_of(out)})", decision_of(out) is None and rc == 0)
 check("conservative/auto-mode: 初回に『auto mode で動いている』と通知", bool(sysmsg_of(out)) and "auto" in sysmsg_of(out))
+# posture ファイル無し × auto mode: 既定フォールバックは「選ばれた conservative」ではないので通知しない（誤警報防止）
+nf = tempfile.mkdtemp(prefix="l1nofile_")
+os.makedirs(os.path.join(nf, ".orchestrator"))
+nfenv = {k: v for k, v in os.environ.items() if k != "ORCH_POSTURE"}
+nfenv.update(CLAUDE_PROJECT_DIR=nf, L1_RECEIPTS_DIR=a1_rcpt)
+rc, out, _ = run(GATE, with_mode(bash("psql -c x"), "auto", "s-a1-nofile"), env=nfenv)
+check("no-file/auto-mode: 出力なし（conservative 通知の誤警報を出さない）", not out and rc == 0)
 # 旧バージョン（permission_mode 無し）× auto ポスチャ: 静かに conservative 相当
 rc, out, _ = run(GATE, bash("ls"), extra_env=dict(E, ORCH_POSTURE="auto"))
 check("auto/no-mode-field: ls -> no decision, no notice", not out and rc == 0)
@@ -324,6 +331,10 @@ p3 = subprocess.run([sys.executable, APPLY, tgt3], capture_output=True, text=Tru
 check("apply: プロジェクト settings の defaultMode=auto は無効と警告", "defaultMode" in p3.stdout and "無効" in p3.stdout)
 s3 = json.load(open(os.path.join(tgt3, ".claude", "settings.json")))
 check("apply: 無効な defaultMode=auto を除去（ユーザー設定の defaultMode を殺さない）", "defaultMode" not in s3["permissions"])
+# フレームワーク repo 自身への適用は拒否（自己封鎖・SameFileError の防止）
+pself = subprocess.run([sys.executable, APPLY, "--posture", "auto", ROOT], capture_output=True, text=True)
+check("apply: フレームワーク自身は SKIP（loud）", pself.returncode == 0 and "SKIP" in pself.stdout and "フレームワーク自身" in pself.stdout)
+check("apply: フレームワーク自身の settings.json を触っていない", "Write(.claude/**)" not in open(os.path.join(ROOT, ".claude", "settings.json")).read())
 
 print("\n=== H. autoMode 分類器ルールの導入/除去（~/.claude/settings.json・HOME を差し替えて検証）===")
 home = tempfile.mkdtemp(prefix="l1home_")

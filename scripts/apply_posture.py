@@ -124,6 +124,13 @@ def _merge_hooks(hooks_cfg, log):
 def apply(proj, posture=DEFAULT_POSTURE, posture_explicit=False):
     log = []
     proj = os.path.abspath(proj)
+    if os.path.realpath(proj) == os.path.realpath(FW):
+        # フレームワーク repo 自身には適用しない: フックは既に本体、settings.json のフロアは
+        # 保守用に skills/agents を書ける狭い形（APP_DENY_FLOOR の .claude/** を入れると自己封鎖）。
+        return [f"SKIP: {proj} はこのフレームワーク自身です。導入スクリプトは適用先プロジェクト専用。",
+                "  この repo でポスチャを明示したいだけなら、.orchestrator/permission_posture.json に",
+                f"  {{\"posture\": \"{posture}\"}} を直接書いてください（フックは次のツール呼び出しから読む）。",
+                "  ファイルが無い場合もフックは何も自動承認せず、auto mode セッションでは分類器が決めます。"]
     claude_dir = os.path.join(proj, ".claude")
     if not os.path.isdir(claude_dir):
         return [f"SKIP: {proj} に .claude/ が無い（Claude Code プロジェクトではない？）"]
