@@ -15,6 +15,8 @@ Postures (CLAUDE.md Rule 9 / docs/security/PERMISSION_POSTURE.md):
     mode), the hook behaves as conservative and says so once per session
     (loud; never silently pretend auto-approval is happening).
   - conservative: never auto-approve from the hook. Floor + observe only.
+    When chosen explicitly but the session runs in auto mode (CLI flag or
+    managed settings overrode the project's Manual default), say so once.
   - balanced: hook auto-approves ops the reversibility classifier calls "auto"
     (reversible / local / read-only). Everything else prompts.
   - permissive: hook auto-approves everything not on the deny floor and records
@@ -29,7 +31,8 @@ Posture resolution (cheap, fail-safe, LOUD on degradation):
   ORCH_POSTURE env  >  .orchestrator/permission_posture.json[.posture]  >  SAFE_POSTURE
 If the config exists but is unreadable/invalid/unknown, fall back to the SAFEST
 hook behaviour (conservative = no hook-side allow) and print a stderr warning
-plus a systemMessage. File absent (first run) = conservative, silently.
+plus a systemMessage. File absent (first run) = conservative, silently — and
+because nobody *chose* it, no "conservative but auto mode" notice is shown.
 
 Contract notes:
   * A hook "allow" cannot override a settings.json `deny` or `ask` rule, so the
@@ -81,26 +84,29 @@ def receipts_dir():
 
 def resolve_posture():
     """ORCH_POSTURE env > posture config file > conservative. Fail-safe + loud.
-    Returns (posture, warning_or_None)."""
+    Returns (posture, explicit, warning_or_None). `explicit` is True only when a
+    human actually chose the posture (valid env or file); False for the silent
+    no-file default and for fallbacks, so "you asked for X but got Y" notices
+    are shown only when X was really asked for."""
     env = os.environ.get("ORCH_POSTURE")
     if env:
         if env in VALID_POSTURES:
-            return env, None
-        return SAFE_POSTURE, (f"権限ポスチャ: ORCH_POSTURE='{env}' は不正値です。"
-                              f"{SAFE_POSTURE} にフォールバックしました。")
+            return env, True, None
+        return SAFE_POSTURE, False, (f"権限ポスチャ: ORCH_POSTURE='{env}' は不正値です。"
+                                     f"{SAFE_POSTURE} にフォールバックしました。")
     path = os.path.join(project_dir(), ".orchestrator", "permission_posture.json")
     if not os.path.exists(path):
-        return SAFE_POSTURE, None  # documented default, not a degradation
+        return SAFE_POSTURE, False, None  # documented default, not a degradation
     try:
         with open(path, encoding="utf-8") as f:
             posture = (json.load(f) or {}).get("posture")
     except Exception as e:
-        return SAFE_POSTURE, (f"権限ポスチャ: {path} を読めず（{e.__class__.__name__}）"
-                              f"{SAFE_POSTURE} にフォールバックしました。")
+        return SAFE_POSTURE, False, (f"権限ポスチャ: {path} を読めず（{e.__class__.__name__}）"
+                                     f"{SAFE_POSTURE} にフォールバックしました。")
     if posture in VALID_POSTURES:
-        return posture, None
-    return SAFE_POSTURE, (f"権限ポスチャ: {path} の posture='{posture}' は不正値です。"
-                          f"{SAFE_POSTURE} にフォールバックしました。")
+        return posture, True, None
+    return SAFE_POSTURE, False, (f"権限ポスチャ: {path} の posture='{posture}' は不正値です。"
+                                 f"{SAFE_POSTURE} にフォールバックしました。")
 
 
 def once_per_session(session_id, key):
@@ -154,7 +160,7 @@ def main():
     ti = data.get("tool_input", {}) or {}
     session = data.get("session_id", "")
     mode = data.get("permission_mode")  # "auto" / "default" / ... ; None on old versions
-    posture, warn = resolve_posture()
+    posture, explicit, warn = resolve_posture()
     if warn:
         print("⚠ " + warn, file=sys.stderr)
 
@@ -166,6 +172,7 @@ def main():
         "key": normalize_key(tool, ti),
         "raw": redact(ti.get("command") or ti.get("file_path") or "")[:400],
         "posture": posture,
+        "posture_explicit": explicit,
         "permission_mode": mode,
     }
 
@@ -195,7 +202,7 @@ def main():
             notice = (f"権限ポスチャ '{posture}' ですが、このセッションは Claude Code の auto mode です。"
                       f"フック側の自動承認は行わず、auto mode の分類器に委ねます（deny フロアは常時有効）。"
                       f"ポスチャを 'auto' に揃えることを推奨します。")
-        elif posture == "conservative" and once_per_session(session, "conservative-in-auto"):
+        elif posture == "conservative" and explicit and once_per_session(session, "conservative-in-auto"):
             notice = ("権限ポスチャは 'conservative'（Manual 想定）ですが、このセッションは auto mode で動いています"
                       "（`--permission-mode auto` か managed settings がプロジェクト設定を上書き）。分類器が自動承認します。"
                       "全操作を人が承認したい場合は auto mode を切って起動してください"
