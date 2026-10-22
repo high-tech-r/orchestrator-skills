@@ -44,7 +44,7 @@ jobs:
     name: Secrets - TruffleHog
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0   # git履歴全体をスキャンするため
       - name: TruffleHog（検証つきスキャン）
@@ -59,7 +59,7 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Semgrep scan（無料レジストリルール・言語自動判定）
         # report モードでは findings があっても赤にしない（助言モード）
         continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
@@ -99,7 +99,7 @@ jobs:
     name: SCA + License - Trivy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       # 品質ゲート: CRITICAL/HIGH があれば失敗（マージブロック）
       - name: Trivy（脆弱性 + ライセンス・ゲート）
         continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
@@ -161,7 +161,7 @@ jobs:
     name: SCA - pip-audit (Python)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       # ジョブレベル if で hashFiles() は使えないため、検出ステップ＋ステップ if で分岐する
       - name: requirements の有無を判定
         id: detect
@@ -198,7 +198,7 @@ jobs:
     name: SCA - OSV-Scanner
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       # 主要言語の lockfile を広くカバー（Python/Node/Go/Rust/Ruby/Java/PHP 等）。
       # ジョブレベル if で hashFiles() は使えないため、検出ステップ＋ステップ if で分岐する。
       - name: lockfile の有無を判定
@@ -230,7 +230,7 @@ jobs:
     name: SCA - composer audit (PHP)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: composer.lock の有無を判定
         id: detect
         run: |
