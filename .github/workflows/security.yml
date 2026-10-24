@@ -218,7 +218,7 @@ jobs:
       - name: OSV-Scanner
         if: steps.detect.outputs.found == 'true'
         continue-on-error: ${{ vars.SECURITY_GATE_MODE == 'report' }}
-        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
         with:
           scan-args: |-
             --recursive
